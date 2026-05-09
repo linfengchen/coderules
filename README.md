@@ -2,6 +2,8 @@
 
 A project-agnostic, layered Cursor/Claude-Code rule pack — universal coding principles + language-specific syntax + reusable architectural patterns + a `aicoding` agent skill.
 
+> **New here?** Read the team-facing introduction first: [`docs/PR-INTRODUCTION.md`](./docs/PR-INTRODUCTION.md) — what it solves, how it works, and how it compares to other approaches (in Chinese).
+
 > What lives here, what does not: this repo ships **rules and a skill**. Project-specific bindings (paths, env vars, API URLs) belong in your **own** repo's `.cursor/rules/project/`. We provide an EvoX-flavored example template under `examples/project-evox/`.
 
 ---
