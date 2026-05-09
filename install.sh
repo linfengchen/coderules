@@ -156,8 +156,8 @@ uninstall() {
     rm "$skill" && green "  ✓ removed: $skill"
   fi
   echo
-  yellow "Note: $CODERULES_HOME (the cloned repo) is left in place."
-  yellow "      To remove the clone too: rm -rf $CODERULES_HOME"
+  yellow "Note: $CODERULES_HOME (the fetched rule pack) is left in place."
+  yellow "      To remove it too: rm -rf $CODERULES_HOME"
 }
 
 usage() {

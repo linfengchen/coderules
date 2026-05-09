@@ -133,12 +133,24 @@ The pattern → binding map (which template binds which `patterns/` file) is in 
 ```bash
 cd ~/path/to/your/repo
 
-# 1) How many rules will be always-on?
-find .cursor/rules -name '*.mdc' -exec rg -l 'alwaysApply: true' {} \;
-# Expected (≤ 7 total): 6 from coderules/common/ + your own project trunk if any
+# Note: install.sh creates symlinks; use `find -L` to follow them.
 
-# 2) Are rules being picked up by Cursor?
-# In Cursor: open Settings → Rules → confirm the linked files appear
+# 1) Total rule files reachable
+find -L .cursor/rules -name '*.mdc' | wc -l
+# Expected: 19   (10 common + 4 lang + 5 patterns)
+
+# 2) Always-on tier (alwaysApply: true) — should be ≤ 6 from coderules
+find -L .cursor/rules -name '*.mdc' | xargs grep -l 'alwaysApply: true' | xargs -n1 basename | sort
+# Expected:
+#   architecture.mdc
+#   clean-code-core.mdc
+#   decision-hygiene.mdc
+#   error-handling.mdc
+#   quality-gates.mdc
+#   security-secrets.mdc
+
+# 3) Are rules being picked up by Cursor?
+# In Cursor: open Settings → Rules → confirm the four layers appear (common, lang, patterns, aicoding)
 ```
 
 Then ask Cursor a small task and check that:
@@ -147,6 +159,32 @@ Then ask Cursor a small task and check that:
 - It does not invent bindings (e.g., it asks you which IM platform when you mention "bot")
 
 The full regression matrix is in [`REGRESSION-TEST-PLAN.md`](./REGRESSION-TEST-PLAN.md) (T1–T6).
+
+---
+
+## What Gets Installed
+
+After `install.sh cursor`, your project layout:
+
+```
+your-repo/
+└── .cursor/
+    └── rules/
+        ├── common/      → ~/.coderules/common      (symlink)
+        ├── lang/        → ~/.coderules/lang        (symlink)
+        ├── patterns/    → ~/.coderules/patterns    (symlink)
+        └── aicoding/    → ~/.coderules/aicoding    (symlink)
+```
+
+After `install.sh claude`:
+
+```
+~/.claude/
+└── skills/
+    └── aicoding/        → ~/.coderules/aicoding    (symlink)
+```
+
+`~/.coderules/` itself is a tarball-extracted snapshot (or a `git clone` if `CODERULES_MODE=git`). Roughly 200 KB of plain text — no binaries, no node_modules, no toolchain.
 
 ---
 
@@ -163,6 +201,51 @@ The full regression matrix is in [`REGRESSION-TEST-PLAN.md`](./REGRESSION-TEST-P
 
 # To remove the fetched cache too:
 rm -rf ~/.coderules
+```
+
+---
+
+## Troubleshooting
+
+### `find` returns 0 rule files
+
+Default `find` doesn't follow symlinks. Use `find -L .cursor/rules -name '*.mdc'`.
+
+### `curl: (35) SSL_ERROR_SYSCALL` or other network glitch
+
+Transient. Retry the same command. If persistent, check corporate proxy / firewall against `codeload.github.com` and `raw.githubusercontent.com`.
+
+### Want to install but didn't specify a project dir
+
+`install.sh cursor` defaults to current directory (`$PWD`). If you ran it in your home directory by accident, undo with:
+
+```bash
+~/.coderules/install.sh uninstall ~   # removes the wrong-place symlinks
+```
+
+### "exists, not a symlink: …" warning
+
+Something at the target path already exists (a real directory or file, not a symlink). The installer skips it to avoid clobbering your stuff. To force-relink, remove the existing thing first:
+
+```bash
+rm -rf .cursor/rules/common && ~/.coderules/install.sh cursor .
+```
+
+### Need to upgrade only the rule pack, keep symlinks intact
+
+Re-run `install.sh` — symlinks survive, the cache `~/.coderules/` is replaced atomically.
+
+### Need air-gapped install (no curl access)
+
+Manually fetch the tarball anywhere with internet, scp into the target machine, extract, and link:
+
+```bash
+# On a machine with internet:
+curl -fsSL https://codeload.github.com/linfengchen/coderules/tar.gz/refs/heads/main -o coderules.tar.gz
+
+# Transfer + extract:
+mkdir -p ~/.coderules && tar -xz -C ~/.coderules --strip-components=1 -f coderules.tar.gz
+ln -s ~/.coderules/{common,lang,patterns,aicoding} ~/path/to/your/repo/.cursor/rules/
 ```
 
 ---
