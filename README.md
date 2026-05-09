@@ -22,58 +22,53 @@ For the full layer/file map see [`INDEX.md`](./INDEX.md).
 
 ---
 
-## Quick Start
+## Quick Start (one command)
 
 ```bash
-# 1) Clone next to your project (or anywhere stable)
-git clone <this-repo-url> ~/.coderules
+# Cursor — link rules + skill into the current project
+curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s cursor
 
-# 2) Link the universal layers into your project
-cd ~/path/to/your/repo
-mkdir -p .cursor/rules
-ln -s ~/.coderules/common    .cursor/rules/common
-ln -s ~/.coderules/lang      .cursor/rules/lang
-ln -s ~/.coderules/patterns  .cursor/rules/patterns
+# Claude Code — install aicoding skill globally
+curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s claude
 
-# 3) (Optional) Link the aicoding skill
-ln -s ~/.coderules/aicoding .cursor/rules/aicoding
+# Both, into a specific project
+curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s all ~/path/to/your/repo
 ```
 
-Open the project in Cursor — rules activate automatically per their frontmatter.
+The script clones to `~/.coderules` (override via `CODERULES_HOME=...`), then symlinks `common/`, `lang/`, `patterns/`, `aicoding/` into `<project>/.cursor/rules/`. Re-running is **idempotent**. Open the project in Cursor — rules activate automatically per their frontmatter.
 
-> Why symlinks: when this repo updates, every consuming project gets the new rules immediately. If you prefer copies, replace `ln -s` with `cp -r`.
+To uninstall:
+
+```bash
+~/.coderules/install.sh uninstall ~/path/to/your/repo
+```
 
 ---
 
-## Install by Platform
+## Install Details (per platform)
 
 ### Cursor
 
-Use **either** symlinks (recommended, see Quick Start) **or** copies:
+`install.sh cursor [project_dir]` does, in order:
 
-```bash
-cp -r ~/.coderules/{common,lang,patterns,aicoding} \
-      ~/path/to/your/repo/.cursor/rules/
-```
+1. Clone (or `git pull`) `coderules` into `$CODERULES_HOME` (default `~/.coderules`)
+2. `mkdir -p <project>/.cursor/rules`
+3. `ln -s` for each of `common/`, `lang/`, `patterns/`, `aicoding/`
 
-`examples/*.md` is **never loaded** by Cursor (only `.mdc` is) — leaving it linked is harmless.
+Symlinks (not copies) by design — `git pull` once and every consuming project picks up the update. `examples/*.md` is never loaded by Cursor (extension is `.md`, not `.mdc`).
 
 ### Claude Code
 
-Skills go to `~/.claude/skills/`; rule-pack goes to your project workspace.
+`install.sh claude` does:
 
-```bash
-# Skill: aicoding
-mkdir -p ~/.claude/skills
-ln -s ~/.coderules/aicoding ~/.claude/skills/aicoding
+1. Clone / pull `coderules` into `$CODERULES_HOME`
+2. `ln -s ~/.coderules/aicoding ~/.claude/skills/aicoding`
 
-# Rules: read from any AGENTS.md in the project root
-echo "Read rules from $HOME/.coderules/{common,lang,patterns}" > ~/path/to/your/repo/AGENTS.md
-```
+For the rule layers in a project, also run `install.sh cursor <dir>` — Claude Code reads `.cursor/rules/` too.
 
 ### Codex / Other CLI agents
 
-Splice the always-on tier into your system prompt:
+No installer support yet; splice the always-on tier into your system prompt manually:
 
 ```bash
 cat ~/.coderules/common/{clean-code-core,architecture,decision-hygiene,error-handling,quality-gates,security-secrets}.mdc \
@@ -81,12 +76,19 @@ cat ~/.coderules/common/{clean-code-core,architecture,decision-hygiene,error-han
 # Then prepend that file to your agent's system prompt
 ```
 
-For broader coverage, also splice in the relevant `lang/` and `patterns/` files for the active task.
-
 ### Gemini CLI
 
 ```bash
 gemini skills install ~/.coderules/aicoding
+```
+
+### Manual install (no curl, no script)
+
+```bash
+git clone https://github.com/linfengchen/coderules ~/.coderules
+cd ~/path/to/your/repo
+mkdir -p .cursor/rules
+ln -s ~/.coderules/{common,lang,patterns,aicoding} .cursor/rules/
 ```
 
 ---
@@ -140,12 +142,17 @@ The full regression matrix is in [`REGRESSION-TEST-PLAN.md`](./REGRESSION-TEST-P
 ## Update / Uninstall
 
 ```bash
-# Update
+# Update — re-running install.sh pulls latest, reuses existing symlinks
+~/.coderules/install.sh cursor ~/path/to/your/repo
+
+# Or just:
 cd ~/.coderules && git pull
 
-# Uninstall
-rm ~/path/to/your/repo/.cursor/rules/{common,lang,patterns,aicoding}
-rm -rf ~/path/to/your/repo/.cursor/rules/project    # only if you wrote bindings
+# Uninstall (removes only the symlinks created by install.sh)
+~/.coderules/install.sh uninstall ~/path/to/your/repo
+
+# To remove the cloned repo too:
+rm -rf ~/.coderules
 ```
 
 ---
