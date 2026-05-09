@@ -1,29 +1,32 @@
 #!/usr/bin/env bash
-# coderules installer — clone once, link into your agent of choice.
+# coderules installer — fetch once, link into your agent of choice.
+# Default uses curl + tar (no git required); --git opts into git clone for pull-based updates.
 #
-# Usage (after cloning):
+# Usage (after fetching):
 #   ./install.sh <target> [project_dir]
 #
-# One-liner (without cloning first):
+# One-liner (without fetching first):
 #   curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s <target> [project_dir]
 #
 # Targets:
 #   cursor [dir]      Link rules + skill into <dir>/.cursor/rules/  (default: $PWD)
-#   claude            Link vibe-coding skill into ~/.claude/skills/ (rules: see note below)
+#   claude            Link aicoding skill into ~/.claude/skills/    (rules: see note below)
 #   all [dir]         Both of the above
 #   uninstall [dir]   Remove all symlinks created by this installer
 #   help              Show this message
 #
 # Env overrides:
-#   CODERULES_HOME    Where to clone/keep the repo  (default: ~/.coderules)
-#   CODERULES_REPO    Repo URL                       (default: https://github.com/linfengchen/coderules.git)
-#   CODERULES_REF     Branch / tag / commit to use   (default: main)
+#   CODERULES_HOME    Where to keep the rule pack    (default: ~/.coderules)
+#   CODERULES_REPO    Source repo (owner/repo form)  (default: linfengchen/coderules)
+#   CODERULES_REF     Branch / tag / commit to fetch (default: main)
+#   CODERULES_MODE    "tarball" (default) | "git"    — git enables `git pull` updates
 
 set -euo pipefail
 
-CODERULES_REPO="${CODERULES_REPO:-https://github.com/linfengchen/coderules.git}"
+CODERULES_REPO="${CODERULES_REPO:-linfengchen/coderules}"
 CODERULES_HOME="${CODERULES_HOME:-$HOME/.coderules}"
 CODERULES_REF="${CODERULES_REF:-main}"
+CODERULES_MODE="${CODERULES_MODE:-tarball}"
 
 LAYERS=(common lang patterns aicoding)
 SKILL_DIR="aicoding"
@@ -37,16 +40,51 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || { red "Required command not found: $1"; exit 1; }
 }
 
-ensure_clone() {
+fetch_tarball() {
+  require_cmd curl
+  require_cmd tar
+  local url="https://codeload.github.com/${CODERULES_REPO}/tar.gz/refs/heads/${CODERULES_REF}"
+  local tmp
+  tmp="$(mktemp -d)"
+  blue "==> Downloading $url"
+  if ! curl -fsSL "$url" | tar -xz -C "$tmp"; then
+    rm -rf "$tmp"
+    red "Download / extract failed (check CODERULES_REPO and CODERULES_REF)"
+    return 1
+  fi
+  local extracted
+  extracted="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -1)"
+  if [[ -z "$extracted" ]]; then
+    rm -rf "$tmp"
+    red "Tarball had no top-level directory"
+    return 1
+  fi
+  rm -rf "$CODERULES_HOME"
+  mkdir -p "$(dirname "$CODERULES_HOME")"
+  mv "$extracted" "$CODERULES_HOME"
+  rm -rf "$tmp"
+}
+
+fetch_git() {
   require_cmd git
   if [[ -d "$CODERULES_HOME/.git" ]]; then
-    blue "==> Updating $CODERULES_HOME ($CODERULES_REF)"
+    blue "==> Updating $CODERULES_HOME (git, $CODERULES_REF)"
     git -C "$CODERULES_HOME" fetch --quiet origin "$CODERULES_REF"
     git -C "$CODERULES_HOME" checkout --quiet "$CODERULES_REF"
     git -C "$CODERULES_HOME" pull --ff-only --quiet
   else
-    blue "==> Cloning $CODERULES_REPO into $CODERULES_HOME"
-    git clone --quiet --depth 1 --branch "$CODERULES_REF" "$CODERULES_REPO" "$CODERULES_HOME"
+    blue "==> Cloning https://github.com/${CODERULES_REPO}.git into $CODERULES_HOME (git)"
+    rm -rf "$CODERULES_HOME"
+    git clone --quiet --depth 1 --branch "$CODERULES_REF" \
+      "https://github.com/${CODERULES_REPO}.git" "$CODERULES_HOME"
+  fi
+}
+
+ensure_fetch() {
+  if [[ -d "$CODERULES_HOME/.git" ]] || [[ "$CODERULES_MODE" == "git" ]]; then
+    fetch_git
+  else
+    fetch_tarball
   fi
 }
 
@@ -123,7 +161,29 @@ uninstall() {
 }
 
 usage() {
-  sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'EOF'
+coderules installer — fetch once, link into your agent of choice.
+Default uses curl + tar (no git required); CODERULES_MODE=git opts into git clone.
+
+Usage:
+  ./install.sh <target> [project_dir]
+
+One-liner (no clone needed):
+  curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s <target> [project_dir]
+
+Targets:
+  cursor [dir]      Link rules + skill into <dir>/.cursor/rules/  (default: $PWD)
+  claude            Link aicoding skill into ~/.claude/skills/    (rules: see note below)
+  all [dir]         Both of the above
+  uninstall [dir]   Remove all symlinks created by this installer
+  help              Show this message
+
+Env overrides:
+  CODERULES_HOME    Where to keep the rule pack    (default: ~/.coderules)
+  CODERULES_REPO    Source repo (owner/repo form)  (default: linfengchen/coderules)
+  CODERULES_REF     Branch / tag / commit to fetch (default: main)
+  CODERULES_MODE    "tarball" (default) | "git"    — git enables pull-based updates
+EOF
 }
 
 main() {
@@ -131,9 +191,9 @@ main() {
   local project_dir="${2:-$PWD}"
 
   case "$target" in
-    cursor)    ensure_clone; install_cursor "$project_dir" ;;
-    claude)    ensure_clone; install_claude ;;
-    all)       ensure_clone; install_all "$project_dir" ;;
+    cursor)    ensure_fetch; install_cursor "$project_dir" ;;
+    claude)    ensure_fetch; install_claude ;;
+    all)       ensure_fetch; install_all "$project_dir" ;;
     uninstall) uninstall "$project_dir" ;;
     help|--help|-h) usage ;;
     *) red "Unknown target: $target"; echo; usage; exit 1 ;;

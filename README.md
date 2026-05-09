@@ -22,10 +22,12 @@ For the full layer/file map see [`INDEX.md`](./INDEX.md).
 
 ---
 
-## Quick Start (one command)
+## Quick Start (one command, no git required)
+
+### Option 1 — installer script (recommended, supports update / uninstall)
 
 ```bash
-# Cursor — link rules + skill into the current project
+# Cursor — fetch rules + skill into the current project
 curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s cursor
 
 # Claude Code — install aicoding skill globally
@@ -35,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.
 curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s all ~/path/to/your/repo
 ```
 
-The script clones to `~/.coderules` (override via `CODERULES_HOME=...`), then symlinks `common/`, `lang/`, `patterns/`, `aicoding/` into `<project>/.cursor/rules/`. Re-running is **idempotent**. Open the project in Cursor — rules activate automatically per their frontmatter.
+The script downloads a tarball (no `git` needed) into `~/.coderules`, then symlinks the four layers into `<project>/.cursor/rules/`. Idempotent — re-running just refreshes. Set `CODERULES_MODE=git` if you prefer a `git clone` you can `git pull` later.
 
 To uninstall:
 
@@ -43,25 +45,41 @@ To uninstall:
 ~/.coderules/install.sh uninstall ~/path/to/your/repo
 ```
 
+### Option 2 — pure curl + tar (no script, no git, no `~/.coderules`)
+
+If you don't want any installer or central directory, extract the layers straight into your project:
+
+```bash
+mkdir -p .cursor/rules && \
+  curl -fsSL https://codeload.github.com/linfengchen/coderules/tar.gz/refs/heads/main | \
+  tar -xz -C .cursor/rules --strip-components=1 \
+    coderules-main/common \
+    coderules-main/lang \
+    coderules-main/patterns \
+    coderules-main/aicoding
+```
+
+This drops the four layers as **plain files** into `.cursor/rules/`. To update: re-run the same command (will overwrite). Trade-off: every consuming project carries its own copy.
+
 ---
 
 ## Install Details (per platform)
 
 ### Cursor
 
-`install.sh cursor [project_dir]` does, in order:
+`install.sh cursor [project_dir]` does:
 
-1. Clone (or `git pull`) `coderules` into `$CODERULES_HOME` (default `~/.coderules`)
+1. Download tarball (or `git clone` / `git pull` if `CODERULES_MODE=git`) into `$CODERULES_HOME` (default `~/.coderules`)
 2. `mkdir -p <project>/.cursor/rules`
 3. `ln -s` for each of `common/`, `lang/`, `patterns/`, `aicoding/`
 
-Symlinks (not copies) by design — `git pull` once and every consuming project picks up the update. `examples/*.md` is never loaded by Cursor (extension is `.md`, not `.mdc`).
+Symlinks (not copies) by design — refresh the cached tarball / pull once and every consuming project picks up the update. `examples/*.md` is never loaded by Cursor (extension is `.md`, not `.mdc`).
 
 ### Claude Code
 
 `install.sh claude` does:
 
-1. Clone / pull `coderules` into `$CODERULES_HOME`
+1. Download / refresh `coderules` into `$CODERULES_HOME`
 2. `ln -s ~/.coderules/aicoding ~/.claude/skills/aicoding`
 
 For the rule layers in a project, also run `install.sh cursor <dir>` — Claude Code reads `.cursor/rules/` too.
@@ -80,15 +98,6 @@ cat ~/.coderules/common/{clean-code-core,architecture,decision-hygiene,error-han
 
 ```bash
 gemini skills install ~/.coderules/aicoding
-```
-
-### Manual install (no curl, no script)
-
-```bash
-git clone https://github.com/linfengchen/coderules ~/.coderules
-cd ~/path/to/your/repo
-mkdir -p .cursor/rules
-ln -s ~/.coderules/{common,lang,patterns,aicoding} .cursor/rules/
 ```
 
 ---
@@ -142,16 +151,15 @@ The full regression matrix is in [`REGRESSION-TEST-PLAN.md`](./REGRESSION-TEST-P
 ## Update / Uninstall
 
 ```bash
-# Update — re-running install.sh pulls latest, reuses existing symlinks
+# Update — re-running install.sh re-downloads the tarball, reuses existing symlinks
 ~/.coderules/install.sh cursor ~/path/to/your/repo
 
-# Or just:
-cd ~/.coderules && git pull
+# (Or, if you installed with CODERULES_MODE=git: cd ~/.coderules && git pull)
 
 # Uninstall (removes only the symlinks created by install.sh)
 ~/.coderules/install.sh uninstall ~/path/to/your/repo
 
-# To remove the cloned repo too:
+# To remove the fetched cache too:
 rm -rf ~/.coderules
 ```
 
