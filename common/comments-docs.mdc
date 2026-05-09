@@ -1,0 +1,200 @@
+---
+description: Comments / public-API docs / TODO / FIXME / HACK / Deprecation / Stability-marker conventions — aligned with Google Style Guides. Triggered when writing or reviewing doc comments, TODO/FIXME markers, deprecation notices, or public-API documentation.
+alwaysApply: false
+---
+
+# Comments, Docs & Markers
+
+References the comment / documentation conventions from Google's TS / Python / Java / Go style guides. Language-specific doc syntax lives in `../lang/<language>.mdc`.
+
+## 1. Comments Explain "Why"
+
+```ts
+// BAD: narrating what the code does
+let count = 0; // initialize counter
+count++;       // increment counter
+function add(a, b) { return a + b; } // returns the sum
+
+// BAD: stating the obvious
+// Import the module
+import { foo } from "./foo";
+
+// GOOD: trade-off / constraint / history
+// Retry 3 times because the provider hits ~0.5% 5xx during peak; >3 means it's truly down,
+// further retries waste budget without helping
+const RETRY_LIMIT = 3;
+
+// GOOD: why not the seemingly-better approach
+// Not using Set.has because the elements are deep objects with unstable identity;
+// some + isEqual is correct here
+const exists = items.some(it => isEqual(it, target));
+
+// GOOD: boundary-condition note
+// NOTE: keys come from untrusted user input; must pass through sanitizeKey() before SQL
+```
+
+## 2. Public API Documentation (Mandatory)
+
+Cross-package / cross-module exported symbols **must** carry a doc comment that includes at minimum:
+
+1. One-line **description** of behavior
+2. At least one **usage example**
+3. **Failure / error** behavior
+4. **Stability marker** (see §4)
+
+```ts
+/**
+ * Persists a new task to the database.
+ *
+ * @example
+ * const task = await createTask({ title: "Buy milk" });
+ * console.log(task.id);
+ *
+ * @throws {ValidationError} when title is empty or exceeds 200 chars
+ * @throws {DatabaseError} on persistence failure
+ *
+ * @stable since 0.3.0
+ */
+export async function createTask(input: TaskInput): Promise<Task> {}
+```
+
+```python
+def create_task(input: TaskInput) -> Task:
+    """Persists a new task to the database.
+
+    Example:
+        >>> task = create_task(TaskInput(title="Buy milk"))
+        >>> task.id
+        '123e4567-...'
+
+    Raises:
+        ValidationError: when title is empty or > 200 chars.
+        DatabaseError: on persistence failure.
+
+    Stability: stable since 0.3.0
+    """
+```
+
+```rust
+/// Persists a new task to the database.
+///
+/// # Examples
+///
+/// ```
+/// let task = create_task(TaskInput { title: "Buy milk".into() })?;
+/// ```
+///
+/// # Errors
+///
+/// Returns [`Error::Validation`] when `title` is empty or > 200 chars.
+/// Returns [`Error::Database`] on persistence failure.
+pub fn create_task(input: TaskInput) -> Result<Task, Error> {}
+```
+
+```go
+// CreateTask persists a new task to the database.
+//
+// Example:
+//
+//	task, err := CreateTask(ctx, TaskInput{Title: "Buy milk"})
+//
+// Returns ErrValidation when title is empty or > 200 chars,
+// ErrDatabase on persistence failure.
+//
+// Stability: stable since v0.3.0.
+func CreateTask(ctx context.Context, input TaskInput) (*Task, error) {}
+```
+
+## 3. TODO / FIXME / HACK Format (Required)
+
+```
+TODO(<owner>, #<issue>): <what + why>
+FIXME(<owner>, #<issue>): <known bug / work-around>
+HACK(<owner>, #<issue>): <ugly but necessary; remove when ...>
+NOTE(<owner>): <heads-up for future readers>
+```
+
+Examples:
+
+```ts
+// TODO(joy, #123): switch to streaming once provider supports SSE
+// FIXME(joy, #145): race condition under concurrent writes; serialized for now
+// HACK(joy, #167): hardcoded UA string until upstream lib fixes the user-agent option
+// NOTE(joy): this constant must match the value in `migrations/0001.sql`
+```
+
+**Missing owner or issue → treated as dead comment, deleted.** The point: every TODO has someone tracking it and an issue to follow, so it doesn't become an orphaned note no one ever fixes.
+
+## 4. Stability Markers (Commitment Boundary)
+
+Cross-module exported symbols must declare stability explicitly so they aren't locked-in by Hyrum's Law:
+
+| Marker | Meaning | Commitment |
+|---|---|---|
+| `@stable` / `Stability: stable` | semver-compatible; breaking changes require major version | strong |
+| `@experimental` / `Stability: experimental` | may change in a minor version | medium |
+| `@internal` / `Stability: internal` | no commitment; external use is at your own risk | none |
+| `@deprecated` | reverse commitment: scheduled for removal | see §5 |
+
+Details live in `decision-hygiene.mdc#6-commitment-boundary-management`.
+
+## 5. Deprecation Format (Required)
+
+```
+@deprecated since <X.Y.Z>, use <replacement>. Removed in <A.B.C>.
+```
+
+```ts
+/**
+ * @deprecated since 0.5.0, use `createTaskV2` instead.
+ *             Removed in 1.0.0.
+ *
+ * @see createTaskV2
+ */
+export function createTask(...) {}
+```
+
+**Missing replacement OR missing removal-version → treated as residue.** Both are required:
+
+- Replacement: tells users **what to switch to**.
+- Removal version: tells users **the deadline** to migrate.
+
+## 6. Example-Folder / Sample-Code Boundary
+
+Code in `example/` folders / docstrings looks "officially recommended". If it uses an internal API, **say so explicitly**:
+
+```ts
+// example/advanced.ts
+//
+// NOTE: this example uses _validateTaskShape (internal API).
+// It exists to demonstrate the validation hook design;
+// production code should use the stable createTask() flow above.
+import { _validateTaskShape } from "../src/internal";
+```
+
+Without the note, users / contributors will assume it's a public contract — and Hyrum's Law locks it in.
+
+## 7. Anti-Pattern Comments (Reject on Sight)
+
+| Anti-pattern | Example | Action |
+|---|---|---|
+| Narrates code | `// returns the sum` above `return a + b` | delete |
+| Commented-out code | `// const oldImpl = ...` | delete; use git for history |
+| Vague placeholder | `// TODO: improve this later` | delete or expand to `TODO(owner, #issue)` |
+| Sarcastic placeholder | `// hack hack hack` | delete or expand to `HACK(owner, #issue): <reason>` |
+| Translation gloss | non-English comment that just translates the English identifier | delete |
+| Decorative banner | `// =========== SECTION ===========` scattered | use blank lines + doc structure |
+
+## 8. Verification Checklist
+
+- [ ] Cross-module exports have doc comments (description + example + failure modes + stability)
+- [ ] Every TODO / FIXME / HACK has an owner + issue; ownerless ones are deleted
+- [ ] Every `@deprecated` has a replacement + removal version
+- [ ] No "narrates the code / commented-out code / vague placeholder" comments
+- [ ] Examples that use internal APIs carry an explicit note
+
+## Coordination With Other Rules
+
+- `clean-code-core.mdc#naming--style`: names convey "why"; this file is the comment-side extension
+- `decision-hygiene.mdc#6-commitment-boundary-management`: stability markers are its engineering implementation
+- `../lang/<language>.mdc`: the per-language doc-comment tooling (JSDoc / rustdoc / docstring / godoc)

@@ -1,0 +1,169 @@
+---
+description: Universal architecture for bot-persona / behavior-style extensions — single source of truth for persona schema, pure splitter functions, mention gate, prompt-injection via single ContextSection. Triggered when designing or modifying a bot's persona / voice / reply-style system.
+globs: **/persona/**,**/style/**,**/mention/**
+alwaysApply: false
+---
+
+# Bot-Persona Architecture
+
+Universal pattern for any "bot self-identity / voice / reply-style / when-to-talk" extension. The specific personality framework (MBTI / Big Five / Enneagram / hand-rolled axes), the file paths, and the prompt-template content live in the project layer.
+
+## 1. Persona vs Observer-Persona Separation
+
+Two distinct datasets that must **never** be conflated:
+
+| | **Bot persona** (this pattern) | **Observer persona** |
+|---|---|---|
+| Purpose | Who the bot **is** — name, voice, MBTI, reply style | Statistical picture of **observed users / groups** |
+| Storage | `<bot-config-dir>/persona.json` | `<assets>/eavesdrop/persona/<kind>/<id>.json` |
+| Source | User-set or self-evolution | Event aggregation over time |
+| Used by | Prompt injection, reply styling | Recommendation, group analytics |
+
+**Forbidden**:
+
+- Merging the two into one file or one crate
+- Reading observer-persona data inside the bot-persona extension (or vice versa)
+- Reusing identical type / field names across both. Any new type named `Persona*` must explicitly note in doc which side it belongs to.
+
+## 2. Persona Schema Lives in a Shared / Pure Library
+
+New / modified persona fields must land in **one** location — the shared / pure library used by every dependent module. Do not create a parallel definition in implementation crates / packages.
+
+Schema-change discipline:
+
+1. **Backward-compatible**: existing persona files must keep loading. Use `Optional<...>` / `#[serde(default)]` / `Field?`.
+2. **Validation function**: every new field gets a `parse_*` / validator + unit tests.
+3. **Merge behavior**: when applying a patch, new fields override if present; otherwise retain current. (This must be tested.)
+4. **No new runtime IO**: the schema module reads / writes one file (`<persona-path>`); never new network / DB / extra files.
+
+Floating-point fields prevent `Eq` derivation (`f32` / `f64`). Surfaced types follow.
+
+## 3. Prompt Injection Through a Single ContextSection
+
+The persona is injected into the LLM prompt via **one** ContextSection (or equivalent host-side prompt-section API). The injection has these requirements:
+
+- Returns an **optional** section. When `None`, the host skips the extension entirely (legacy deployments without persona must not degrade).
+- A unique `source` identifier (e.g., `"persona"`)
+- A human-readable `label` (e.g., `"Behavior Constraints"`)
+- A specific `priority` value, lower than the recall section so user-recent input wins (typical: 60 if recall=70)
+- `content` is **plain markdown**: no embedded XML / JSON tags
+- Reads no state outside the agent's session. Optional sub-blocks (e.g., mood) are skipped if their state is missing; the section is still generated.
+
+**Forbidden**:
+
+- Pushing persona content directly into the base prompt outside the single dispatch point
+- Adding a second "persona injection" section (merge into the existing one)
+- Using a `before_agent_start` hook for injection (already unified into ContextSection)
+
+## 4. Reply Splitter Must Be a Pure Function
+
+If the persona supports a "split a long reply into chunks" mode, the splitter is implemented as a **pure function**:
+
+- No clock, no thread, no IO, no RNG
+- Same input → same output, **always** (use stable hash for jitter; see below)
+- Returns a structured `Vec<Chunk>` / `Chunk[]` with `text` + `delay_ms` per chunk
+
+```ts
+function splitReply(full: string, persona: PersonaTag | null, etiquette: Etiquette): Chunk[] {
+  // pure: no Date.now(), no Math.random(), no fetch
+}
+```
+
+Stable jitter: use `hash(full + chunk_index)` for deterministic per-chunk delays. The host applies real `sleep(delay_ms)` on the channel side; the splitter only computes the number.
+
+**Forbidden in the splitter**:
+
+- Reading persona state / files / env vars internally
+- Adding an RNG (`rand::*` / `Math.random` / time-seeded)
+- `unwrap()` / `expect()` / `throw`
+- `sleep` / `tokio::time::sleep` / any wait
+
+When `persona` is missing or invalid → return a single chunk with `delay_ms = 0`. The host falls back to the original streaming path.
+
+`max_msgs` should be capped (typical: 1..=12) to prevent runaway segmentation.
+
+## 5. Single Splitter Call Site
+
+Each IM platform calls the splitter **exactly once**, in the streaming module's "final reply phase". Forbidden to call mid-event.
+
+Typical preconditions:
+
+1. Streaming `final_status == Done` (don't split if streaming errored / aborted)
+2. `persona.reply_mode == Some("text_split")` (or equivalent)
+3. `parse_persona_tag(persona.tag.as_deref())` returns `Some(_)`
+
+Any precondition unmet → fall back to the original single-message / streaming-card path.
+
+When sending chunks:
+
+- Before each: `sleep(chunk.delay_ms)` on the host side
+- On send error → break immediately, don't retry (avoids duplicate sends)
+- After all chunks sent → don't patch the streaming card body (state is already Done)
+
+## 6. Mention Gate Decoupled From Persona
+
+If the bot operates in groups, a "mention gate" decides whether to respond. It must be **decoupled from the persona**:
+
+- The mention gate lives in the channel layer (e.g., `<channels>/mention.<ext>`)
+- The persona lives in the prompt layer
+- They share neither code nor data
+
+Each platform runtime normalizes its native event into a uniform `MentionGateInput`:
+
+- `chat_type`: normalized to a known constant (`group` / `direct` / etc.)
+- `bot_id`: optional; if missing, the gate fails open (legacy deployments without bot-id config don't break)
+- `mention_ids`: extracted from native mentions (Slack `<@U...>`, Telegram `@username`, Feishu mentions, QQ `[CQ:at,qq=...]`)
+- `require_mention`: from env var with a sensible default (`true` is common)
+
+Gate fails → `return Ok(())` immediately; never reaches the LLM. **Slash commands are handled before the gate** (so `/help` etc. always responds).
+
+**Forbidden**:
+
+- Writing a second gate outside the canonical mention module
+- Adding secondary filtering after the gate passes (decisions only inside the gate)
+- Mutual dependency between mention module and persona module
+
+## 7. The "16 Archetype" Anti-Pattern
+
+When a personality framework has a fixed enumeration (16 MBTI types, 9 enneagram types, 5 OCEAN profiles, etc.), do **not** write a switch over them:
+
+```rust
+// ❌ archetype style — forbidden
+match persona_tag {
+    "INTP" => "...",
+    "ENFP" => "...",
+    // ... 14 more
+}
+```
+
+Instead, decompose the framework into its **axes** (E/I, S/N, T/F, J/P; or Big Five 5 axes; or Enneagram instinctual variants), write **one template per axis end**, and let the LLM compose them. This:
+
+- Reduces template count from 16 to ~8
+- Makes adding a new axis additive, not multiplicative
+- Lets a "rare" combo benefit from improvements made for any of its axes
+
+Forbidden patterns:
+
+- `if tag.starts_with("INT")` style "two-axis specific" exceptions
+- 16 markdown files `assets/intp.md`, `assets/enfp.md`, ...
+- 16 branch test functions
+
+To add detail for a specific combo, add it to the corresponding axis templates so other combos inherit too.
+
+## 8. Verification Checklist
+
+- [ ] Bot-persona and observer-persona data are stored separately, in different paths, and share no types
+- [ ] Persona schema lives in **one** shared / pure library, with `parse_*` validators + unit tests
+- [ ] Schema changes are backward-compatible (existing persona files keep loading)
+- [ ] Prompt injection is **single-site**, via a ContextSection-equivalent at a fixed priority
+- [ ] Reply splitter is a pure function (no IO, no RNG, no time, no `unwrap`)
+- [ ] Splitter has exactly one call site per channel, in the final-reply phase
+- [ ] Mention gate is in the channel layer, decoupled from persona, with bot-id-missing fail-open default
+- [ ] No 16-archetype switches; framework is decomposed into N axes with N template files
+
+## See Also
+
+- `../common/architecture.mdc#single-interface-definition` — schema, splitter, mention gate all follow "one definition per crate / package"
+- `../common/decision-hygiene.mdc#5-temporal-layering` — adding a "5th axis" / 16 scripts / new IM platforms are **post-v1** decisions; default to placeholder + trigger
+- `../common/clean-code-core.mdc#yagni` — template / etiquette / splitter knob count caps
+- Consuming project's `.cursor/rules/project/<name>-persona.mdc` — concrete framework choice, axes, file paths, channel preconditions (template: `../examples/project-evox/mbti-persona.md`)

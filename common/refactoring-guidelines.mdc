@@ -1,0 +1,108 @@
+---
+description: Long-term refactoring patterns and type-tightening strategy — barrel + delegation split for files > 500 lines, gradual `any` reduction, large-file prevention. Triggered when refactoring, splitting a large file, tightening types, or planning a multi-step modernization.
+alwaysApply: false
+---
+
+# Refactoring & Type Tightening
+
+## File Split Pattern
+
+When a file exceeds the size cap, follow the **barrel + delegation** pattern:
+
+1. **Keep the original file as a barrel**: it retains the class shell (thin methods) and re-exports.
+2. **Extract logic into submodules**: each new file exports standalone functions that take the necessary state as parameters.
+3. **Zero churn for consumers**: every existing import continues to point at the original file.
+
+```typescript
+// agent-session.ts (barrel) — retains the class, delegates to submodules
+import { runManualCompaction } from "./agent-session-compaction.js";
+
+class AgentSession {
+	async compact() {
+		return runManualCompaction(this.agent, this.sessionManager, ...);
+	}
+}
+
+export { AgentSession };
+export * from "./agent-session-types.js";
+```
+
+### Post-Split Checklist
+
+- [ ] The barrel re-exports every public API
+- [ ] Submodules have no circular dependencies
+- [ ] `tsgo --noEmit` (or equivalent) passes
+- [ ] No duplicate functions (extraction commonly produces them)
+- [ ] Delegation methods avoid `as any`; if unavoidable, define a shared Host interface
+
+### Completed Splits (historical record)
+
+| Original file | Submodules | Original lines → barrel lines |
+|--------|----------|----------------------|
+| `theme.ts` | 7 | 1135 → 62 |
+| `session-manager.ts` | 3 | 800 → 527 |
+| `package-manager.ts` | 6 | 1483 → 531 |
+| `interactive-mode.ts` | 8 | 2702 → 938 |
+| `agent-session.ts` | 10 | 2938 → 1735 |
+
+## Phase 3: Gradual `any` Tightening
+
+Biome's `noExplicitAny` is set to `warn`. Tighten in this order:
+
+### Priority 1 — Cross-package public APIs (one batch already done)
+
+- `evo-session` Hub client: `HubAsset`, `HubFetchResponse`, `HubPublishResult`
+- `agent-core` evolution hooks: removed `(m as any).isError`
+- `extensions/loader.ts`: `ExtensionFactory` is now typed
+
+### Priority 2 — `interactive-mode.ts` delegation interface
+
+Currently 32 instances of `this as any` are passed to submodules. Define:
+
+```typescript
+interface InteractiveModeHost {
+	readonly session: AgentSession;
+	readonly chatContainer: Container;
+	// ...
+}
+```
+
+All submodules consume `InteractiveModeHost` instead of `any`.
+
+### Priority 3 — Provider-layer API responses
+
+Use the OpenAI / Anthropic / Google SDK's own types to replace `any` responses in the provider layer.
+
+### Priority 4 — web-ui Lark callbacks
+
+Type the callbacks in web-ui that interact with external APIs.
+
+### Standard for new code
+
+- New code does not introduce new `any` unless protected by a TypeBox schema or runtime type check.
+- PR review check: total `any` count must not increase.
+
+## Large-File Prevention Strategy
+
+The hard cap lives in `clean-code-core.mdc#structural-constraints` (500 lines). Repo-level CI / review additions:
+
+- A `wc -l` check in CI: `find packages/*/src -name '*.ts' ! -name '*.generated.ts' | xargs wc -l | awk '$1 > 500 { print "WARN:", $0 }'`
+- During feature development, if you estimate > 300 lines, plan the split up front.
+- During code review, watch single-file size; any change crossing 500 lines requires a split plan.
+
+## Test-Coverage Strategy
+
+All Vitest packages have v8 coverage configured (`vitest.config.ts`):
+
+- `ai`, `agent`, `coding-agent`, `evo-session`: `include: ["src/**/*.ts"]`, `exclude: ["**/*.generated.ts"]`
+- `tui`: `include: ["src/**/*.ts"]`
+- `web-ui`: `include: ["src/**/*.ts"]`, environment: `happy-dom`
+
+Run coverage: `npm run test:coverage`.
+
+Phase targets:
+
+1. Collect baseline data first (current coverage).
+2. Core modules (agent-core, ai, evo-session) target 60%+.
+3. coding-agent targets 40%+ (TUI / CLI interactions are hard to unit-test).
+4. web-ui targets 30%+ (DOM-environment limits).

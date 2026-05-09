@@ -1,0 +1,95 @@
+---
+description: Universal post-implementation gates — completion standard, full review, end-to-end verification, git-hook discipline. Required before claiming "done".
+alwaysApply: true
+---
+
+# Quality Gates
+
+This file covers **post-implementation** quality gates. It pairs with `decision-hygiene.mdc` (decision-phase hygiene) — both are required.
+
+## 1. Completion Standard
+
+Before declaring "done":
+
+- Run end-to-end tests against actual behavior. **Reading the code logic is not enough.**
+- For features with external interaction (IM bots, third-party APIs, integrations), trigger one full real-world flow and confirm output matches expectations.
+
+Just-passed-types / just-green-unit-tests / just-clean-diff is **not** done.
+
+## 2. Post-Change Review & E2E Gate
+
+After any large change (cross-file refactor, core-module modification, public-API signature change), the following flow is **mandatory** — every step:
+
+### 2.1 Full-Diff Code Review
+
+- Walk through the diff file by file. Confirm no missing piece, no conflict, no typo.
+- Verify build artifacts are consistent with source (TS: compare key function signatures after `npm run build`; Rust: `cargo check --workspace --tests --lib` shows zero warnings).
+- Confirm dependency-package API signatures match call sites — **read the source, don't guess**.
+
+### 2.2 End-to-End Test
+
+- Kill all stale processes; clear runtime caches.
+- Restart and confirm key markers appear in the logs.
+- Trigger one real business flow; trace input → processing → output end-to-end.
+- Inspect produced artifacts (DB rows, generated files, log entries, event streams) for expected values.
+
+Project-specific kill / cache-clear commands live in the consuming project's `.cursor/rules/project/<name>.mdc` (template: `../examples/project-evox/evox-monorepo.md`).
+
+### 2.3 Not Passing = Not Done
+
+- Review surfaced an issue → fix → re-review.
+- E2E failed → fix → re-test.
+- Both must pass before the task is marked complete.
+
+## 3. Git-Hook Discipline
+
+Typical two-layer hook setup:
+
+| Hook | Contents | Block condition |
+|---|---|---|
+| `pre-commit` | formatter + type check | type / format failure blocks commit |
+| `pre-push` | type check + lint + full build | build failure blocks push |
+
+### 3.1 Red Lines
+
+- Do **not** use `--no-verify` to skip hooks unless there is **a clear written reason in the commit body**.
+- Do **not** write commit messages like "ci will format" / "let CI fix it" / "fix later".
+- IDE "format on save" is **not** a substitute for explicitly running the formatter (IDE may miss files / use a different toolchain version).
+
+### 3.2 Self-Hosted fmt Discipline
+
+CI is not "always on + cannot bypass" → **CI cannot be relied on**. The agent is the sole reliable safety net for fmt / lint. Run before commit:
+
+```bash
+# Generic shape (replace with project-specific tool)
+<formatter> --check     # dry-run to see what would change
+<formatter>             # if there's a diff, apply it
+git add <files>         # restage after apply
+```
+
+Per-language details live in `../lang/<language>.mdc` (e.g., `../lang/rust-fmt-discipline.mdc`).
+
+## 4. Dependencies & Builds
+
+- Use the project's chosen package manager (npm / yarn / pnpm / cargo / poetry / go mod) — don't mix.
+- Pin **specific versions**; don't guess version numbers.
+- Before adding a dependency, ask: does the existing stack solve this? Bundle impact? Maintained? Known vulns? License compatible?
+- **Every dependency is a liability.** Prefer the standard library and existing utilities.
+
+## 5. Verification Checklist
+
+Run before declaring "done":
+
+- [ ] Entire diff has been reviewed; no typo / missing file
+- [ ] Type check / lint / build all green
+- [ ] Formatter has been run locally and the result restaged
+- [ ] One real end-to-end flow has run; key logs / artifacts match expectations
+- [ ] Git hooks were not bypassed via `--no-verify`
+
+## Coordination With Other Rules
+
+- `clean-code-core.mdc` — code-writing-phase principles
+- `decision-hygiene.mdc` — pre-implementation hygiene
+- `error-handling.mdc` — universal error discipline
+- `../lang/<language>.mdc` / `../lang/rust-fmt-discipline.mdc` — language-specific formatter / lint details
+- Consuming project's `.cursor/rules/project/<name>.mdc` — project-specific kill commands and E2E flows (template: `../examples/project-evox/evox-monorepo.md`)

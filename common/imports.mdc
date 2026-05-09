@@ -1,0 +1,242 @@
+---
+description: Import ordering and organization — three-segment grouping (stdlib / third-party / local) + alphabetical sorting, anti-patterns, aligned with Google Style Guides. Triggered when adding, reorganizing, or auditing imports, or designing barrel / re-export files.
+alwaysApply: false
+---
+
+# Imports
+
+## 1. Three-Segment Grouping (Mandatory)
+
+Every file's imports are organized into three segments, **separated by one blank line**, **alphabetized within each segment**:
+
+```
+1. Standard library / language built-ins
+2. Third-party dependencies
+3. This repo / relative paths
+```
+
+### 1.1 TypeScript / JavaScript
+
+```ts
+// 1. stdlib (Node built-ins / browser built-ins)
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+// 2. third-party
+import express from "express";
+import { z } from "zod";
+
+// 3. this repo (absolute / alias before relative)
+import { taskService } from "@/services/task";
+import type { Task } from "./types";
+```
+
+### 1.2 Python
+
+```python
+# 1. stdlib
+import json
+from pathlib import Path
+
+# 2. third-party
+import requests
+from pydantic import BaseModel
+
+# 3. local
+from myapp.models import Task
+from .services import task_service
+```
+
+### 1.3 Rust
+
+```rust
+// 1. std
+use std::collections::HashMap;
+use std::sync::Arc;
+
+// 2. external crates
+use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
+
+// 3. crate-local
+use crate::types::Task;
+use super::service;
+```
+
+### 1.4 Go
+
+```go
+import (
+    // 1. stdlib
+    "context"
+    "fmt"
+
+    // 2. third-party
+    "github.com/spf13/cobra"
+    "go.uber.org/zap"
+
+    // 3. local
+    "myapp/internal/task"
+    "myapp/pkg/util"
+)
+```
+
+## 2. Anti-Patterns (Reject on Sight)
+
+### 2.1 Wildcard Imports
+
+```ts
+// BAD — breaks tree-shaking + namespace pollution
+import * as utils from "./utils";
+
+// BAD — unnecessary in modern React
+import React from "react";  // only old React versions need this
+
+// GOOD — named imports
+import { formatDate, parseDate } from "./utils";
+```
+
+```rust
+// BAD — glob import (only allowed for prelude / known trait sets)
+use crate::prelude::*;     // OK exception
+use my_module::*;          // forbidden in general
+```
+
+```python
+# Forever forbidden
+from x import *
+```
+
+### 2.2 Side-Effect Imports Mixed With Logic Imports
+
+```ts
+// BAD — side-effect import buried in the middle
+import { foo } from "lib1";
+import "polyfill";        // side-effect! must be its own segment
+import { bar } from "lib2";
+
+// GOOD — side-effect imports in their own segment, at the top
+import "polyfill";
+
+import { foo } from "lib1";
+import { bar } from "lib2";
+```
+
+### 2.3 Type Imports Mixed With Runtime Imports
+
+TypeScript: type dependencies must use `import type` to avoid pulling in runtime side-effects:
+
+```ts
+// BAD
+import { Task, taskService } from "./task";  // Task is a type, taskService is runtime
+
+// GOOD
+import type { Task } from "./task";
+import { taskService } from "./task";
+```
+
+## 3. Sort Details
+
+### 3.1 Alphabetical Within a Segment
+
+```ts
+// GOOD
+import { a } from "alpha";
+import { b } from "beta";
+import { c } from "charlie";
+
+// BAD — out of order
+import { c } from "charlie";
+import { a } from "alpha";
+```
+
+Most formatters (Biome / Prettier `organizeImports` / isort / ruff / gofmt / rustfmt) do this automatically — **enable them**.
+
+### 3.2 Multiple Named Imports From One Module
+
+```ts
+// GOOD — fits on one line
+import { foo, bar } from "lib";
+
+// GOOD — too long, one per line
+import {
+	bar,
+	baz,
+	foo,
+	qux,
+} from "lib";
+```
+
+### 3.3 Default + Named on the Same Line
+
+```ts
+// GOOD — default first
+import express, { Request, Response } from "express";
+```
+
+## 4. Path Conventions
+
+### 4.1 Prefer Absolute / Alias Paths
+
+If the project has a path alias configured (`@/` / `~/` / `src/`), use it:
+
+```ts
+// BAD — deep relative path is unreadable
+import { taskService } from "../../../../services/task";
+
+// GOOD — alias
+import { taskService } from "@/services/task";
+```
+
+### 4.2 Use Relative Paths Within the Same Package
+
+```ts
+// Within the same package, relative paths express the "neighbor" relationship
+import type { TaskInput } from "./types";
+import { validate } from "./validate";
+```
+
+### 4.3 Don't Import From `dist/` / `build/`
+
+```ts
+// BAD — build artifacts shouldn't be referenced from source
+import { Task } from "./dist/types";
+
+// GOOD — source imports source
+import type { Task } from "./src/types";
+```
+
+## 5. Re-export / Barrel
+
+Package roots — `index.ts` / `mod.rs` / `__init__.py` — only re-export. **No business logic**:
+
+```ts
+// index.ts (barrel)
+export { TaskService } from "./service";
+export type { Task, TaskInput } from "./types";
+export { validateTask } from "./validate";
+```
+
+The barrel-split pattern lives in `architecture.mdc#single-file-responsibility` and `refactoring-guidelines.mdc#file-split-pattern`.
+
+## 6. Tool Integration
+
+| Language | Tool | Config |
+|---|---|---|
+| TS / JS | Biome `organizeImports` / Prettier | `"organizeImports": "on"` / `"importOrder"` |
+| Python | `isort` / `ruff` | `force_sort_within_sections = true` / Google profile |
+| Rust | `rustfmt` | `group_imports = "StdExternalCrate"` (nightly) |
+| Go | `goimports` / `gofmt` | auto three-segment by default |
+
+**Enforce via pre-commit hook** — let the tool sort, don't write it by hand.
+
+## 7. Verification Checklist
+
+- [ ] Three segments separated by a blank line
+- [ ] Alphabetized within each segment (formatter-driven)
+- [ ] No wildcard `import *` (except known prelude exceptions)
+- [ ] TS type dependencies use `import type`
+- [ ] Side-effect imports are their own top segment
+- [ ] No deep relative paths (use alias)
+- [ ] No imports from `dist/` / `build/`
+- [ ] Formatter is in pre-commit hook

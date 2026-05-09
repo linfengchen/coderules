@@ -1,0 +1,93 @@
+---
+description: Clean-code core principles (KISS / YAGNI / SRP / DRY) + structural constraints (file 500 / function 120 / nesting 3)
+alwaysApply: true
+---
+
+# Clean Code Core
+
+## Core Principles
+
+- **KISS**: simplicity and readability beat cleverness. If you can't read the solution, delete and rethink.
+- **YAGNI**: don't add abstractions / config knobs / extension points the current task doesn't need.
+- **YAGNI — temporal layering**: for "maybe needed later" features, only **leave a placeholder + write the trigger condition**. Do **not** ship the negotiation protocol / version matrix / compatibility shim now. See `decision-hygiene.mdc#5-temporal-layering`.
+- **SRP**: one function / file / class does one thing. If it does two, split it.
+- **DRY (readability first)**: deduplication is not abstraction-supremacy. Three repeated lines beats a generic helper nobody can read.
+
+## Structural Constraints
+
+| Granularity | Soft cap | **Hard cap** | When exceeded |
+|---|---|---|---|
+| Single file | 400 lines | **500 lines** | Split by responsibility + barrel re-export (see `architecture.mdc`) |
+| Function | 80 lines | **120 lines** | Extract helpers |
+| Nesting depth | 2 levels | **3 levels** | Use early return / guard clauses to flatten |
+
+> Any newly introduced file > 500 lines is rejected at review.
+
+## Naming & Style
+
+- Names must convey **what + why**. Forbidden meaningless names: `data`, `item`, `handle`, `info`, `tmp`, `result` (without context).
+- Follow the project's existing convention (camelCase / PascalCase / snake_case — see `../lang/clean-code-typescript.mdc` / `../lang/clean-code-rust.mdc`).
+- Prefer modern, terse syntax: optional chaining, nullish coalescing, pattern matching, early return.
+
+## Forbidden Patterns
+
+- No god objects / god components (one class or component > 500 lines is a hard split).
+- No magic numbers / magic strings — extract to a named constant.
+- No nested ternaries (`a ? b : c ? d : e`). Use `if/else` or `switch`.
+- Comments only explain **why / non-obvious constraints / trade-offs**. Never narrate what the code does.
+
+## Examples
+
+```ts
+// BAD: nested ternary + magic numbers
+const status = code === 0 ? "ok" : code > 400 ? code > 500 ? "server" : "client" : "unknown";
+
+// GOOD
+const HTTP_CLIENT_ERROR_MIN = 400;
+const HTTP_SERVER_ERROR_MIN = 500;
+
+function classifyHttpStatus(code: number): "ok" | "client" | "server" | "unknown" {
+	if (code === 0) return "ok";
+	if (code >= HTTP_SERVER_ERROR_MIN) return "server";
+	if (code >= HTTP_CLIENT_ERROR_MIN) return "client";
+	return "unknown";
+}
+```
+
+```ts
+// BAD: 4 levels of nesting, no early return
+function process(user) {
+	if (user) {
+		if (user.active) {
+			if (user.perms.length > 0) {
+				// ...
+			}
+		}
+	}
+}
+
+// GOOD
+function process(user) {
+	if (!user) return;
+	if (!user.active) return;
+	if (user.perms.length === 0) return;
+	// ...
+}
+```
+
+## Pre-Code Checklist
+
+1. **Analyze**: which architectural layer does this belong to? Does it violate layer separation?
+2. **Plan**: do I need a new file to keep modules small and focused?
+3. **Review**: is there anything I can cut under YAGNI? If yes, cut it.
+4. **Output**: clean, modular, self-explanatory code.
+
+## Related Rules
+
+- `architecture.mdc` — single interface definition / barrel split / wiring completeness
+- `decision-hygiene.mdc` — decision-phase hygiene (claim decomposition / evidence anchors / explicit retraction / single glue layer / temporal layering / commitment boundary)
+- `error-handling.mdc` — universal error discipline (no swallowed errors, validate at boundaries)
+- `refactoring-guidelines.mdc` — concrete file-split workflow
+- `comments-docs.mdc` / `imports.mdc` — comment / import conventions
+- `quality-gates.mdc` — post-implementation gates
+- `../lang/clean-code-typescript.mdc` / `../lang/clean-code-rust.mdc` — language-specific syntax

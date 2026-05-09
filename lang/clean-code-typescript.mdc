@@ -1,0 +1,105 @@
+---
+description: TypeScript / TSX clean-code conventions — typing, error handling, async, destructuring, React rules
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# TypeScript Clean Code
+
+Core principles live in `../common/clean-code-core.mdc`. This file only covers TS-specific rules.
+
+## Naming & Style
+
+- Variables / functions: `camelCase`
+- Types / interfaces / components: `PascalCase`
+- Constants: `SCREAMING_SNAKE_CASE`
+- File names: `kebab-case.ts`; React components `PascalCase.tsx`
+- Indent with tabs (matches the repo's Biome config)
+- Line width: 100 (matches Biome / Prettier defaults; not Google's 80)
+
+## Type Imports
+
+Type-only dependencies use `import type` to keep runtime side-effects out:
+
+```ts
+// BAD
+import { SessionState, startSession } from "./session";
+
+// GOOD
+import type { SessionState } from "./session";
+import { startSession } from "./session";
+```
+
+See `../common/imports.mdc` for the full three-segment grouping convention.
+
+## `any` Tightening (Forbidden Across Public APIs)
+
+- Cross-package public APIs (function parameters / return types) forbid `any`.
+- Internal helpers may use it, but exported signatures must be explicit.
+- Biome's `noExplicitAny` is `warn`; **new code does not introduce new `any`**.
+
+See also `../common/architecture.mdc#strict-type-boundaries-public-api-tightening` for the cross-package strict-mode rule.
+
+## Error Handling
+
+Universal rules live in `../common/error-handling.mdc`. TS-specific:
+
+- Each `catch` must satisfy at least one of: log via console / logger, comment explaining safe-ignore, or rethrow / propagate.
+- `// ignore` alone is **not** sufficient — the comment must say **why** it's safe.
+
+```ts
+// BAD
+try { riskyCall(); } catch {}
+
+// GOOD — logged
+try { riskyCall(); }
+catch (err) {
+	console.error(`[module] riskyCall failed: ${err instanceof Error ? err.message : err}`);
+}
+
+// ACCEPTABLE — explicit safe-ignore
+try { statSync(path); }
+catch {
+	// Path may not exist; the undefined-fallback below handles it
+}
+```
+
+## async / await
+
+- Prefer `async/await` over raw `.then().catch()` chains.
+- Optional dynamic `import()` for optional dependencies must be wrapped in try/catch with a "missing-package" diagnostic.
+
+```ts
+try {
+	const { feature } = await import("@evox/optional-package");
+	feature.init();
+} catch (err) {
+	console.error(`@evox/optional-package not available: ${err instanceof Error ? err.message : err}`);
+}
+```
+
+## Destructuring & Modern Syntax
+
+When the parameter list is too long, switch to destructuring + an options object — it reads better than a long positional list:
+
+```ts
+// BAD
+function createSession(id: string, name: string, ttl: number, retry: number, logger?: Logger) { }
+
+// GOOD
+function createSession(opts: { id: string; name: string; ttl: number; retry?: number; logger?: Logger }) { }
+```
+
+Use `?.` / `??` / `satisfies` deliberately:
+
+```ts
+const timeout = config?.timeout ?? DEFAULT_TIMEOUT;
+const route = { path: "/a", method: "GET" } satisfies Route;
+```
+
+## React / TSX Additional Rules
+
+- Functional components + hooks only; no new class components.
+- Reusable logic goes into `useXxx` custom hooks.
+- Co-locate styles (CSS Module / styled / Tailwind — match the project's choice). Don't scatter style files across the tree.
+- Effect dependency arrays must be complete; missing deps are bugs.

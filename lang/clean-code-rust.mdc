@@ -1,0 +1,123 @@
+---
+description: Rust clean-code conventions — naming, error handling, ownership, async, unsafe
+globs: **/*.rs
+alwaysApply: false
+---
+
+# Rust Clean Code
+
+Core principles live in `../common/clean-code-core.mdc`. This file only covers Rust-specific rules.
+
+## Naming
+
+- Functions / variables / fields / modules: `snake_case`
+- Types / traits / enum variants: `PascalCase`
+- Constants / `static`: `SCREAMING_SNAKE_CASE`
+- Lifetimes: short names like `'a` / `'b`; for non-trivial cases use semantic names (`'src` / `'cfg`).
+- Follow `cargo fmt` defaults (tabs, 120 columns). **Do not fight the formatter.**
+
+## Error Handling
+
+Universal rules live in `../common/error-handling.mdc`. Rust-specific:
+
+- **No `unwrap()` / `expect()` in production paths.** Tests / examples / `const` initializers are the only exceptions.
+- Library code returns `Result<T, Error>`; do not panic.
+- Use `thiserror` to define a domain-error enum. Don't use `String` as an error type.
+- Across crate boundaries, prefer `thiserror`; in a binary `main`, `anyhow` for error conversion is acceptable.
+
+```rust
+// BAD
+let port: u16 = env::var("PORT").unwrap().parse().unwrap();
+
+// GOOD
+let port: u16 = env::var("PORT")
+	.map_err(|_| ConfigError::MissingPort)?
+	.parse()
+	.map_err(ConfigError::InvalidPort)?;
+```
+
+## Prefer `?` Over Manual Match
+
+Don't hand-roll a `match` to unpack a `Result` and re-throw. Use `?`:
+
+```rust
+// BAD
+let x = match load() {
+	Ok(v) => v,
+	Err(e) => return Err(e.into()),
+};
+
+// GOOD
+let x = load()?;
+```
+
+## Ownership & Borrowing
+
+- Borrow rather than clone. Only `.clone()` when you genuinely need owned ownership.
+- Function inputs prefer `&str` / `&[T]` / `&Path` instead of forcing the caller to provide `String` / `Vec<T>` / `PathBuf`.
+- Returns prefer owned (`String` / `Vec<T>`) unless there's a clear lifetime benefit.
+- Public APIs avoid lifetime parameters — return owned values rather than ask the caller to compute lifetimes.
+
+## Collections & Iterators
+
+- Iterator chains beat hand-written `for` loops (more testable, fewer intermediates).
+- `collect::<Vec<_>>()` is common; use turbofish when the collected type is ambiguous.
+- For large collections, avoid `.clone()` + chaining. Borrow first, process second.
+
+```rust
+// BAD
+for i in 0..items.len() {
+	if items[i].active { total += items[i].value; }
+}
+
+// GOOD
+let total: u64 = items.iter().filter(|it| it.active).map(|it| it.value).sum();
+```
+
+## Nesting / Early Return
+
+Same as core: max 3 levels. Use `let ... else`, `?`, and guard clauses to flatten:
+
+```rust
+// BAD
+fn process(user: Option<&User>) -> Result<(), Error> {
+	if let Some(u) = user {
+		if u.active {
+			if !u.perms.is_empty() {
+				// ... actual logic here
+			}
+		}
+	}
+	Ok(())
+}
+
+// GOOD
+fn process(user: Option<&User>) -> Result<(), Error> {
+	let Some(u) = user else { return Ok(()); };
+	if !u.active { return Ok(()); }
+	if u.perms.is_empty() { return Ok(()); }
+	// ... actual logic
+	Ok(())
+}
+```
+
+## async
+
+- Prefer `tokio` (repo convention).
+- Don't `std::thread::sleep` inside an async fn — use `tokio::time::sleep`.
+- For shared state, prefer `parking_lot::Mutex` (non-async critical section) or `tokio::sync::Mutex` (critical section spanning `await`).
+- Don't `block_on` inside an async context.
+
+## `unsafe`
+
+Avoid it. When required:
+
+1. Add a `// SAFETY: ...` comment explaining why the invariants hold.
+2. Wrap it in the smallest function possible.
+3. Expose a safe API at the outer layer.
+
+## Modules & Visibility
+
+- Prefer `pub(crate)` over `pub`. Only mark `pub` when it's truly public.
+- `mod.rs` / `lib.rs` only re-export — no business logic.
+- `pub use` within a crate is fine; cross-crate `pub use` needs a clear reason.

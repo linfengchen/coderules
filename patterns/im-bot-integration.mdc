@@ -1,0 +1,165 @@
+---
+description: Universal patterns for integrating an IM / chat-platform bot — WebSocket bridge, event dispatch, message routing, typing indicator, receive-ID detection, paginated SDK calls, tool file organization. Triggered when working with IM bot code, designing a chat-platform integration, or asking "how should the bot bridge be structured?".
+globs: **/bridge/**,**/bot/**,**/im/**,**/channels/**
+alwaysApply: false
+---
+
+# IM Bot Integration Patterns
+
+Universal patterns for any IM / chat-platform bot integration (Slack, Feishu, Telegram, WeCom, Discord, QQ Bot). The specific endpoint URLs, emoji vocabularies, message-event shapes, and authentication tokens live in the consuming project's `.cursor/rules/project/<platform>-sdk.mdc`. See `../examples/project-evox/feishu-sdk.md` for a template.
+
+## 1. Client Initialization
+
+Two universal requirements:
+
+- Credentials come from environment variables, never hardcoded. (See `../common/security-secrets.mdc`.)
+- Domain / region / OAuth scope is explicit, not inferred from defaults.
+
+```ts
+const client = new Sdk.Client({
+  appId: process.env.<PLATFORM>_APP_ID,
+  appSecret: process.env.<PLATFORM>_APP_SECRET,
+  domain: Sdk.Domain.<Region>,
+});
+```
+
+If the SDK supports multiple regions / hosts, **always pass it explicitly** — defaults change between SDK versions.
+
+## 2. WebSocket Long Connection (Bridge)
+
+Most IM platforms expose either a webhook (push to your URL) or a WebSocket (you maintain the connection). For an agent that runs on a developer machine without a public URL, WebSocket is the only practical choice.
+
+```ts
+const eventDispatcher = new Sdk.EventDispatcher({}).register({
+  "<event.type>": async (data) => { /* handle */ },
+});
+const wsClient = new Sdk.WSClient({ appId, appSecret, loggerLevel: Sdk.LoggerLevel.info });
+await wsClient.start({ eventDispatcher });
+```
+
+**Invariants**:
+
+- The dispatcher must register the event keys explicitly. Never use a wildcard catch-all — silent drops kill debuggability.
+- The WS client's logger level must be configurable via env var (`info` for prod, `debug` for triage).
+
+## 3. Message Event Routing
+
+A universal incoming-message shape (different SDKs differ in field names but the structure is the same):
+
+```ts
+{
+  message: { chat_id, message_id, message_type, content: '<json-string>' },
+  sender:  { sender_id: { open_id } }
+}
+```
+
+Universal rules:
+
+- `content` is almost always a JSON string — **always** parse with try/catch and a fallback to skip the message.
+- Filter by `message_type` early: only process the types your bot understands. Logging-skipped types is healthy; processing every type is fragile.
+
+```ts
+let parsed: { text?: string };
+try { parsed = JSON.parse(event.message.content); }
+catch { return; /* skip non-JSON or malformed payloads */ }
+if (event.message.message_type !== "text") return;
+```
+
+## 4. Receive-ID Detection
+
+Most platforms use prefixed identifiers to distinguish chat / user / email. Detect by prefix rather than asking the SDK on every send (cheaper + works offline):
+
+```ts
+function detectReceiveIdType(id: string) {
+  if (id.startsWith("<chat-prefix>")) return "chat_id";
+  if (id.startsWith("<user-prefix>")) return "open_id";
+  if (id.includes("@")) return "email";
+  return "open_id"; // safe default
+}
+```
+
+The exact prefix table is platform-specific and lives in the consuming project's `.cursor/rules/project/<platform>-sdk.mdc`.
+
+## 5. Typing / Reaction Indicator
+
+Show responsiveness while the bot is "thinking":
+
+1. On message receive: post a reaction (`emoji_type: "Typing"` or `:typing:` or platform equivalent) to the inbound message.
+2. On reply sent: delete the reaction.
+
+This pattern works on every platform that supports message reactions. Where it doesn't, fall back to a "Bot is typing..." ephemeral message.
+
+## 6. Paginated SDK Calls
+
+Almost every "list" endpoint in IM SDKs is paginated. Wrap once, reuse everywhere:
+
+```ts
+async function collectPaginated<T, R>(
+  fn: (pageToken?: string) => Promise<{ data: { items: T[]; page_token?: string; has_more: boolean }; }>,
+  maxPages = 100,
+): Promise<T[]> {
+  const out: T[] = [];
+  let pageToken: string | undefined;
+  for (let i = 0; i < maxPages; i++) {
+    const resp = await fn(pageToken);
+    out.push(...(resp.data.items ?? []));
+    if (!resp.data.has_more) break;
+    pageToken = resp.data.page_token;
+  }
+  return out;
+}
+```
+
+Cap the maximum pages to prevent runaway loops on hostile / buggy responses.
+
+## 7. Tool File Organization
+
+When the integration grows, group tools by domain. A useful default:
+
+| Domain | Typical tools |
+|---|---|
+| `tools/message.ts` | send / get / react / quote / forward / delete |
+| `tools/group.ts` | create / list / membership / settings |
+| `tools/doc.ts` | document read / write / search |
+| `tools/contacts.ts` | user / department lookup |
+| `tools/file.ts` | upload / download / metadata |
+| `tools/calendar.ts` | event CRUD |
+| `tools/approval.ts` | workflow operations |
+| `tools/meeting.ts` | meeting room / video call ops |
+
+Keep each file ≤ 500 lines per `../common/clean-code-core.mdc#structural-constraints`. When a domain grows, split by sub-domain rather than letting one file balloon.
+
+## 8. Native Emoji / Reaction Vocabularies
+
+Every IM platform has its own enum of reactions / emoji that look prettier than Unicode emoji:
+
+- Slack: `:thumbsup:` / `:eyes:` / `:white_check_mark:`
+- Feishu: `THUMBSUP` / `OK` / `DONE` / `Fire`
+- Telegram: limited reaction set per chat
+- Discord: custom emoji per server
+
+**Rule**: in markdown / message-card content, prefer the platform's native emoji over Unicode (better rendering, accessibility, search). Unicode is a fallback when the platform offers nothing equivalent.
+
+The mapping table is platform-specific and lives in the consuming project's `.cursor/rules/project/<platform>-sdk.mdc`.
+
+## 9. Error Handling
+
+Universal rules in `../common/error-handling.mdc` apply. IM-specific:
+
+- API error responses **always** include a code (`StatusCode`, `Code`, `error_code`) — log it, don't swallow.
+- WebSocket disconnects are normal — implement reconnect with exponential backoff (cap ~30s).
+- Idempotency: send-message ops should include a client-supplied request id where the SDK supports it, so a retry doesn't duplicate.
+
+## 10. Testing IM Integrations
+
+True E2E tests need a real bot account; unit tests cover the parsing / routing / formatting:
+
+- Mock the SDK client at the boundary, asserting `client.<method>.create(...)` was called with the expected args (see `../lang/typescript-testing.mdc#extension-testing-pattern`).
+- E2E scenarios live behind an `E2E_TEST=1 + <PLATFORM>_APP_ID present` gate so CI doesn't fail when credentials are absent.
+
+## See Also
+
+- `../common/security-secrets.mdc` — credential storage; never hardcode app secrets
+- `../common/error-handling.mdc` — module-prefixed log lines for grep-locating
+- `plugin-architecture.mdc` — most IM bots run as plugins of a host agent
+- Consuming project's `.cursor/rules/project/<platform>-sdk.mdc` — platform-specific URLs, emoji tables, block-type IDs (template: `../examples/project-evox/feishu-sdk.md`)

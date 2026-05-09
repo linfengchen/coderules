@@ -1,0 +1,161 @@
+---
+description: Universal testing principles — naming, AAA structure, pyramid, mock boundaries, coverage philosophy. Framework-specific conventions live in lang/*-testing.mdc.
+globs: **/test/**,**/tests/**,**/__tests__/**,**/*.test.*,**/*.spec.*
+alwaysApply: false
+---
+
+# Testing Principles
+
+Universal testing principles, framework-agnostic. Per-framework conventions live in `../lang/typescript-testing.mdc` (Vitest), etc.
+
+## 1. Test Pyramid
+
+```
+        E2E (5%)         ← real user journeys
+      Integration (15%)  ← cross-module / DB / real I/O
+     Unit (80%)          ← single functions / pure logic / fast
+```
+
+**Default to writing at the lowest layer that proves the property.** Use unit when you can — E2E is slow and fragile, reserved for critical user paths.
+
+## 2. AAA Structure
+
+```
+// Arrange  → set up data / mocks
+// Act      → trigger the behavior under test
+// Assert   → verify the result
+```
+
+One AAA segment per test. **Forbidden**: one test function asserting five things; more than two assertion blocks → split.
+
+## 3. Naming: Describe Behavior, Not Implementation
+
+```ts
+// BAD — names describe internal mechanics
+it('calls db.query with correct args', () => {});
+it('returns from internal cache', () => {});
+
+// GOOD — names describe externally observable behavior
+it('returns 404 when task does not exist', () => {});
+it('rejects creation when title exceeds 200 chars', () => {});
+it('persists the task even when notification fails', () => {});
+```
+
+Format: `it('<expected behavior> when <condition>')` or `it('<expected behavior>')`.
+
+## 4. How Much to Write: Trigger Conditions
+
+| Scenario | Tests required? |
+|---|---|
+| New logic module | **Required**: at least 1 happy path + 1 error path |
+| Bug fix | **Required**: a **failing** regression test first, then the fix (red → green) |
+| Refactor | Lean on existing tests as a safety net; if coverage is thin, add tests **before** refactoring |
+| Public API | **Required**: contract test (the input/output schema cannot drift silently) |
+| Pure UI tweaks | Visual / screenshot tests preferred; unit tests not mandatory |
+| Config / deploy scripts | Usually no unit tests; rely on E2E / smoke |
+
+### 4.1 Bug-Fix Red-Green Flow
+
+```
+1. Reproduce → write a test that **fails**
+2. Run the test → red
+3. Change the code → run the test → green
+4. Commit (fix + regression test together)
+```
+
+**Write the test first**. If the test passes immediately, you didn't reproduce the bug or the test misses the target → rewrite the test.
+
+## 5. Mock Boundaries
+
+Only mock things **outside** the system:
+
+| Mock | Don't mock |
+|---|---|
+| HTTP / third-party APIs | Your own services |
+| DB (use in-memory / sqlite) | Business functions / pure helpers |
+| Filesystem / clock | Your own models / DTOs |
+| Auth providers | Your own middleware |
+
+**The deeper you mock, the more fragile and less valuable the test.** Mocking out everything you wrote means the "test" only verifies the mock.
+
+## 6. Coverage Philosophy
+
+### 6.1 Stage Targets
+
+| Module type | Target |
+|---|---|
+| Core business logic / algorithms | 60–80% |
+| Service layer / API handlers | 50–70% |
+| UI components | 30–50% (quality over quantity) |
+| TUI / CLI interactions | 20–40% (manual e2e fills the gap) |
+| Generated / config code | usually excluded |
+
+### 6.2 Coverage Is Not the Goal
+
+- 100% coverage ≠ 0 bugs; it can mean "tests don't hit the critical paths".
+- 50% high-quality tests > 90% all-happy-path tests.
+- **Prioritize covering**: boundary values / null / empty / error paths / concurrency.
+
+### 6.3 Reasonable Coverage Exclusions
+
+```
+- Auto-generated code (`*.generated.*`)
+- Constant / type-definition files
+- Configuration / build scripts
+- Test files themselves (test/ directory)
+```
+
+## 7. Test Isolation
+
+### 7.1 No Execution-Order Dependence
+
+```
+BAD: test1 mutates global state, test2 depends on it
+GOOD: each test sets up and tears down independently
+```
+
+Concurrent runs (`--test-threads=N`) and serial runs must produce identical results.
+
+### 7.2 No External-State Dependence
+
+```
+BAD: test depends on ~/.foo/bar.json existing on your machine
+GOOD: test uses a fixture / temp dir / mock fs
+```
+
+CI / teammates' machines must run successfully.
+
+### 7.3 Time-Sensitive Tests
+
+```
+BAD: setTimeout(() => assert(...), 1000)  // timing-dependent
+GOOD: inject a fake clock (vi.useFakeTimers / freezegun / mockito)
+```
+
+## 8. Anti-Patterns (Reject on Sight)
+
+| Anti-pattern | Example | Fix |
+|---|---|---|
+| Tests internals | `expect(internalCache).toEqual(...)` | Test observable behavior |
+| Snapshot overuse | Lots of `toMatchSnapshot()` no one reads | Explicit assertions on key fields |
+| Multi-purpose test | One test triggers 5 ops + 5 assertions | Split into 5 |
+| Real I/O in tests | `fetch(productionUrl)` | Mock |
+| Commented-out tests | `// it.skip(...)` for a year | Delete |
+| Tests with no asserts | Just runs without checking | Delete or add assertions |
+| Shared mutable state | Module-level `let counter = 0` | Reset per test |
+
+## 9. Verification Checklist
+
+- [ ] Each test has one clear AAA segment; name describes behavior
+- [ ] New logic has happy + error paths
+- [ ] Bug fixes carry a red-then-green regression test
+- [ ] Mocks are limited to system-external boundaries
+- [ ] Tests are concurrency-safe and order-independent
+- [ ] No snapshot overuse / no commented-out tests / no empty assertions
+
+## Coordination With Other Rules
+
+- `../lang/typescript-testing.mdc` — Vitest / Jest framework details
+- `clean-code-core.mdc#structural-constraints` — file-size limits also apply to test files
+- `quality-gates.mdc#post-change-review--e2e-gate` — the E2E gate is the pyramid's hard top
+- `error-handling.mdc#7-bug-fix-discipline` — the red-green flow lives there too

@@ -1,0 +1,139 @@
+---
+description: Universal pattern for designing plugin / extension systems — folder layout, lifecycle hooks, tool registration, error-handling discipline when the host swallows console output. Triggered when working in plugin / extension code, designing a host-plugin contract, or asking "how should plugins be structured?".
+globs: **/extensions/**,**/plugins/**,**/addons/**
+alwaysApply: false
+---
+
+# Plugin / Extension Architecture
+
+Generic pattern for any host-plugin system (CLI extensions, IDE plugins, agent extensions). Specific bindings (file paths, manifest field names, host API symbol names) live in the project layer.
+
+## 1. Folder Layout
+
+A typical plugin lives at `<plugins-root>/<plugin-name>/` and contains:
+
+```
+<plugin-name>/
+  index.<ext>       -- entry point; exports a default function(host: HostAPI)
+  package.json      -- manifest with a host-specific section declaring the entry
+  lib.<ext>         -- shared utilities (extract when there is more than one tool file)
+  tools/            -- tool implementations, one file per domain
+```
+
+**Conventions**:
+
+- Each plugin's directory is self-contained — no `../` imports leaking out.
+- The manifest section the host reads (e.g., `"<host>": { "extensions": ["./index.ts"] }`) must point at the entry file relative to the plugin root.
+- `lib.<ext>` is optional; create it as soon as a second tool file appears.
+
+## 2. Entry Point
+
+```ts
+import type { HostAPI } from "<host-package>";
+
+export default function (host: HostAPI) {
+  // 1. Validate environment (return early if required env / config is missing)
+  // 2. Initialize external clients (auth, network)
+  // 3. Register tools via per-domain register functions
+  // 4. Register lifecycle hooks
+}
+```
+
+The entry must be **idempotent enough to no-op on missing config** rather than throw. The host is allowed to load the plugin even when the user hasn't configured it; failing should produce a single warning, not a crash.
+
+## 3. Tool Registration
+
+- Use the host's `host.registerTool()` (or equivalent) with a typed schema for parameters.
+- Group related tools into separate files under `tools/`; each file exports a `register*Tools(host, client)` function that the entry invokes.
+- Tool names use `snake_case` with a domain prefix to avoid collisions: `<domain>_<action>` (e.g., `task_create`, `bot_send_message`).
+- Use a `StringEnum()` helper (or equivalent) for action parameters with fixed values — fixed enums beat free-form strings.
+
+### Tool Execute Return Format
+
+A common return shape:
+
+```ts
+function ok(data: unknown) {
+  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }], details: {} };
+}
+function fail(msg: string): never {
+  throw new Error(msg);
+}
+```
+
+Wrap all per-tool return values into a uniform shape so the host can render / serialize them without per-tool special cases.
+
+## 4. Lifecycle Hooks
+
+A complete lifecycle has three phases:
+
+| Hook | Purpose |
+|---|---|
+| `session_start` / `init` | Open connections, start background tasks, warm caches |
+| `agent_end` / `tick` | Per-iteration work (e.g., forward agent replies to an external sink) |
+| `session_shutdown` / `dispose` | Close connections, flush logs, persist state |
+
+**Invariants**:
+
+- Hooks must complete (or at least return a Promise) — never `setTimeout(cb, 0)` and forget.
+- Hooks must not throw; surface errors via the error-logging convention below.
+- `session_shutdown` is the only hook guaranteed to run during graceful shutdown — put critical persistence work there.
+
+## 5. Error Handling Inside Plugins
+
+The universal rules in `../common/error-handling.mdc` apply, with one host-specific addendum:
+
+### 5.1 Hosts That Swallow Console Output
+
+Many TUI / terminal hosts capture stdout/stderr to their own renderer. `console.error()` from inside a plugin will **not appear** to the user. The right pattern is to write structured errors to a file:
+
+```ts
+import { appendFileSync } from "node:fs";
+
+try { riskyCall(); }
+catch (err) {
+  appendFileSync(`<log-dir>/<plugin-name>.log`,
+    `[${new Date().toISOString()}] [<plugin-name>] ${err instanceof Error ? err.message : err}\n`);
+}
+```
+
+Each error line carries `[<plugin-name>]` per `../common/error-handling.mdc#2-module-prefixed-log-lines` so `grep` can locate the source quickly.
+
+The project layer specifies the log directory (`/tmp/<plugin>.log` is a common default).
+
+### 5.2 Required Parameter Validation
+
+```ts
+if (!param) return fail("param is required");
+```
+
+Validate at the plugin's tool-call boundary; `../common/error-handling.mdc#3-validate-at-boundaries-trust-inside` applies.
+
+## 6. Plugin Reload Discipline
+
+Many plugin hosts use a JIT compiler or import cache (jiti, esbuild-register, importlib). After modifying plugin code, the agent **must**:
+
+1. Kill stale host processes
+2. Clear the JIT cache directory (e.g., `/tmp/jiti/`, `__pycache__/`, `.cache/`)
+3. Restart the host
+4. Verify the cached/reloaded code contains the new behavior (`grep <new-keyword> <cache-dir>/<plugin>-*.mjs`)
+
+Skipping any step → the agent is testing stale code and getting false signals.
+
+The project layer specifies the exact cache directory and kill commands.
+
+## 7. Verification Checklist
+
+- [ ] Plugin folder is self-contained (no `../` import leaks)
+- [ ] Manifest entry section is correct
+- [ ] All tools have schema-validated parameters
+- [ ] Tool names use `<domain>_<action>` to avoid collisions
+- [ ] All lifecycle hooks return / await properly; none throw
+- [ ] Errors logged to file when host swallows console
+- [ ] Plugin reload discipline (kill + clear cache + restart + verify) followed during dev
+
+## See Also
+
+- `../common/error-handling.mdc` — universal error discipline + module-prefix logging
+- `../common/architecture.mdc` — single interface definition; host APIs are the prime example
+- Consuming project's `.cursor/rules/project/<name>-extension.mdc` — concrete binding (path, host package name, log dir) (template: `../examples/project-evox/evox-extension.md`)

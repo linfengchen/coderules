@@ -1,0 +1,155 @@
+---
+description: Rust fmt discipline — run `cargo fmt --all` locally before commit / push; write code in shapes rustfmt won't reformat. Triggered when editing any `.rs` file or before a Rust commit.
+globs: **/*.rs
+alwaysApply: false
+---
+
+# Rust fmt Discipline
+
+This repo treats `../common/quality-gates.mdc` as the **source of truth** for the complete commit/push gate (fmt → clippy → tests → quality-gate → verify). This rule **complements** it: it focuses on the fmt step alone, explaining why it must be fixed locally and how to write code that rustfmt won't reformat — saving an extra `cargo fmt` round and an isolated style commit.
+
+## Why fmt Must Be Fixed Locally, Not by CI / pre-push
+
+State of the world (as of master 5e72f0):
+
+- `.github/workflows/ci.yml`: **PR / feature-branch pushes do not trigger CI.** Only pushes to `master` or `v*` tags do (saving Actions minutes). So "PR mergeable" ≠ "CI green" — if a PR lands on master with broken fmt, master goes red for everyone.
+- `.githooks/pre-push`: runs fmt + clippy + quality-gate + workspace tests, **but only after the user runs `make install-hooks`**. `SKIP_HOOKS=1` bypasses it. Hook is not on by default + can be bypassed = cannot be relied on.
+- Local `cargo fmt --all -- --check` runs in ~3 seconds — vastly cheaper than "push → wait for master CI red → push fmt fix-up commit", saving ≥ 10× wall-time + commit-history noise + token waste.
+
+In short: **the agent is the only reliable fmt safety net** and must run fmt actively.
+
+## Required: One-Command Pre-Commit
+
+Walk the full gate per `../common/quality-gates.mdc`; the fmt step concretely:
+
+```bash
+cargo fmt --all -- --check  # dry-run to see what would change
+cargo fmt --all             # apply if there's a diff
+git add <files>             # restage after apply (per quality-gates §3)
+```
+
+Note: `--all`, not `-p <crate>`. **Don't run only the current crate** — workspaces have trait re-exports / `pub use` chains, and rustfmt's witness-type judgments depend on sibling crates.
+
+## Write Code in rustfmt-Friendly Shapes
+
+Each "write → fmt → fmt changed N places → review N → commit" cycle wastes step 3. Predicting how rustfmt will fold makes N close to 0 in most cases.
+
+Repo `rustfmt.toml`:
+
+```toml
+edition = "2021"
+tab_spaces = 4
+hard_tabs = true
+max_width = 120
+```
+
+Rules to internalize:
+
+- **Tab indentation** (`hard_tabs = true`) — never spaces.
+- **Line width 120** — break the line proactively as you approach it.
+- **Chained calls / long parameters**: rustfmt decides based on whether the **whole expression** fits on one line. Include the `let x: Type = ` prefix in the calculation.
+- Method chain ≥ 4 segments OR a long receiver → write each segment on its own line.
+- Function calls with ≥ 4 arguments OR a single long argument → one argument per line.
+- Inline `if cond { a } else { b }` wrapped by `Ok(...)` / a function arg / a long `let` easily exceeds 120 — write it as a block.
+
+### Real Examples (from PR #163 / 8d143f8 CI fmt hits)
+
+**Counter-example 1**: 6-segment chain on one line — rustfmt will split.
+
+```rust
+let req: Vec<&str> = s["required"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+```
+
+Correct:
+
+```rust
+let req: Vec<&str> = s["required"]
+	.as_array()
+	.unwrap()
+	.iter()
+	.filter_map(Value::as_str)
+	.collect();
+```
+
+**Counter-example 2**: 4 args + receiver on one line — rustfmt splits the receiver.
+
+```rust
+client.request_json(Method::POST, &path, Some(&query), Some(&body)).await
+```
+
+Correct:
+
+```rust
+client
+	.request_json(Method::POST, &path, Some(&query), Some(&body))
+	.await
+```
+
+**Counter-example 3**: `Ok(if ... { } else { })` on one line — outer `Ok(...)` pushes width over.
+
+```rust
+Ok(if data.is_null() { json!({ "success": true }) } else { data })
+```
+
+Correct:
+
+```rust
+Ok(if data.is_null() {
+	json!({ "success": true })
+} else {
+	data
+})
+```
+
+**Counter-example 4**: `vec!` literal with many / long elements.
+
+```rust
+vec!["pin", "unpin", "recall", "forward", "merge_forward", "list_pins", "urgent_app"]
+```
+
+> 7 short strings might look fine, but inside `assert_eq!(actions, ...)` plus prefix indentation it often crosses 120. rustfmt splits to one per line. Predict: ≥ 5 elements + ≥ 2 levels of indent → write multi-line up front.
+
+Correct:
+
+```rust
+vec![
+	"pin",
+	"unpin",
+	"recall",
+	"forward",
+	"merge_forward",
+	"list_pins",
+	"urgent_app"
+]
+```
+
+## Toolchain Alignment
+
+The repo root's `rust-toolchain.toml` pins `1.95.0`; CI (master push + tags) uses `dtolnay/rust-toolchain@stable`. As of 2026-05, stable is exactly 1.95.0 — no drift. **If stable rolls forward to a new minor**, you must:
+
+1. Update `rust-toolchain.toml` `channel`, **OR**
+2. Change `dtolnay/rust-toolchain@stable` in `.github/workflows/ci.yml` to `@1.95.0` to pin it to local.
+
+One or the other. "Local 1.95 / CI stable" must not be allowed to drift long-term. Any "fmt passes locally but red on master push" → first run:
+
+```bash
+rustup run stable rustfmt --version
+rustfmt --version
+```
+
+Confirm both versions match. If they don't, fix the toolchain first; don't blindly apply the diff CI reports.
+
+## Red Lines
+
+- Forbidden to push a commit that hasn't run `cargo fmt --all -- --check` locally.
+- Forbidden commit messages: "ci will format" / "let CI fix it" / "fix later".
+- A commit that's already pushed without fmt → fmt fix-up must be a **separate commit** (message: `style: cargo fmt --all after <reason>`). Don't squash it into the business commit; don't amend. Reason: fmt is mechanical rewriting — keep it review-distinct from business changes.
+- IDE "format on save" is **not** a substitute for explicitly running `cargo fmt --all`: IDE may miss files / use a different rustfmt version. IDE green ≠ CI green.
+- `--no-verify` to bypass `.githooks/pre-commit` or `.githooks/pre-push` is forbidden (when hooks are installed). Sole exception: emergency hotfix, with `SKIP_HOOKS=1` named explicitly in the PR description with reason.
+
+## Coordination With Other Rules
+
+- `../common/quality-gates.mdc`: **source of truth**. It owns the full 5-step gate; this file is the write-side complement to its fmt section (write rustfmt-friendly code + counter-example library).
+- `clean-code-rust.mdc#naming`: "Follow `cargo fmt` defaults; do not fight the formatter" — this rule promotes that style suggestion to a hard-enforced + counter-example-backed rule.
+- `../patterns/multi-worktree.mdc#4-completion-handoff`: every worktree push must walk the full `../common/quality-gates.mdc` gate.
+- Consuming project's memory-MCP binding (template: `../examples/project-evox/gep-memory.md`): when fmt passes locally but is red on master CI, record an outcome with signals `ci_red` / `rust_fmt_skipped` / `toolchain_drift` so future recall hits.

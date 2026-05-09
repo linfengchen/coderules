@@ -1,0 +1,75 @@
+---
+description: Vitest testing conventions for TypeScript projects — config, mocking, extension testing, conditional E2E
+globs: **/test/**/*.test.ts,**/test/**/*.test.tsx
+alwaysApply: false
+---
+
+# TypeScript Testing (Vitest)
+
+Universal testing principles live in `../common/testing-principles.mdc`. This file is Vitest-specific.
+
+## Framework & Config
+
+- **Vitest** with `globals: true`, `environment: 'node'`
+- Test files: `test/**/*.test.ts` (no `__tests__/` directories)
+- Config: `vitest.config.ts` per package
+- Default timeout: 30s; use `{ timeout: N }` as second arg for slow tests
+- web-ui uses `environment: 'happy-dom'` (Web Components need a DOM)
+
+## Coverage
+
+- Every package is configured with `coverage.provider: 'v8'` and `reporter: ['text', 'lcov']`
+- Run: `npm run test:coverage` (root) or `npx vitest --run --coverage` (single package)
+- `*.generated.ts` is excluded from coverage
+- When adding a core-logic module, write its test file in the same change.
+
+## Naming
+
+- File: `<feature>.test.ts` for unit; `<feature>.e2e.test.ts` for E2E
+- `describe`: matches the module / function under test
+- Test names describe behavior, not implementation (see `../common/testing-principles.mdc#3-naming`)
+
+## Mock Strategy
+
+- `vi.mock("module")` for module-level mocking (auto-hoisted)
+- `vi.fn()` for individual function mocks
+- `vi.importActual()` for partial mocking (real + override-specific exports)
+- No `__mocks__/` directories — all mocks inline in test files
+
+## Extension Testing Pattern
+
+For testing evox extension tools:
+
+```typescript
+// 1. Create a mock client with all methods as vi.fn()
+const client = createMockLarkClient();
+// 2. Create a mock ExtensionAPI that captures registrations
+const pi = createMockExtensionAPI();
+// 3. Call the register function
+registerMessageTools(pi as any, client as any);
+// 4. Get a tool by name and call execute
+const result = await pi.getTool("feishu_send_message").execute("call-id", params, undefined, undefined, {});
+// 5. Assert on client mock calls and the return value
+expect(client.im.v1.message.create).toHaveBeenCalledWith({ ... });
+```
+
+## Integration Tests
+
+- Use `discoverAndLoadExtensions()` from `../src/core/extensions/loader.js`
+- Create temp directories with `fs.mkdtempSync`; clean up in `afterEach`
+- Symlink `node_modules` when the extension has external dependencies
+- Extension objects have `tools: Map<string, ...>` and `handlers: Map<string, ...>`
+
+## Conditional E2E Tests
+
+```typescript
+const hasCredentials = () => !!process.env.API_KEY && !!process.env.E2E_TEST;
+const describeIf = hasCredentials() ? describe : describe.skip;
+```
+
+## Assertions
+
+- Validate error messages exactly: `.rejects.toThrow("exact message")`
+- Verify mock call arguments, not just call count
+- For tool results: `JSON.parse(result.content[0].text)` extracts the data
+- Check both positive and negative paths (success + missing params)

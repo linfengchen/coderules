@@ -1,0 +1,180 @@
+---
+description: Universal discipline for using a memory MCP (recall before substantive work, record after, signals dictionary, score interpretation). Triggered when an MCP-based memory layer is configured (recall / search_community / record_outcome / install_gene tools) and the agent is about to start a substantive task.
+alwaysApply: false
+---
+
+# Memory-MCP Discipline
+
+Universal usage rules for any MCP-based memory system that exposes a `recall + record + (optional community search + install)` tool family. The specific server name, tool prefix, and project-domain signal vocabulary live in the consuming project's `.cursor/rules/project/<name>-memory.mdc`. See `../examples/project-evox/gep-memory.md` for a template.
+
+## 1. When to Use
+
+Use the memory MCP only for **substantive work**:
+
+- Bug fixes
+- Cross-file refactors
+- Integrating a new external service
+- E2E debugging
+- Cross-language ports
+- Architectural decisions
+- Exploring an unfamiliar module
+
+**Skip for trivial ops**:
+
+- Single-file tweaks, comment fixes
+- Reading a file
+- Running a command
+- Answering a question
+- Writing a small script
+
+The cost question is twofold: tools that hit a remote graph (`search_community`, `recall`, `evolve`, `record_outcome`) consume credits; trivial use crowds the recall index with low-signal entries that lower future hit quality.
+
+## 2. The Loop
+
+```
+                ┌─ trivial? ── skip
+[task arrives] ─┤
+                └─ substantive? ──▶ recall ──▶ work ──▶ record_outcome
+                                       │                       │
+                                       │ miss?                 │
+                                       └─▶ search_community ───┘
+                                              │
+                                              │ great Gene found?
+                                              └─▶ install_gene ─▶ recall again
+```
+
+### 2.1 Input Phase (Before Acting)
+
+| Tool | When | Purpose |
+|---|---|---|
+| `<prefix>_recall` | Start of every substantive task | Search the local node's history; reuse on success hit, avoid pitfall on failure hit |
+| `<prefix>_search_community` | Local recall miss / unfamiliar domain / new service | Tap global experience; only adopt at similarity > 0.75 |
+| `<prefix>_list_genes` | Need to see existing strategies | Free; scan first, decide whether to evolve |
+| Read resources (`Gene_Pool`, `Capsules`, `Protocol_Spec`) | Need full detail / context | Free |
+
+### 2.2 Evolution Phase (When Stuck / Exploring New Capability)
+
+| Tool | When | Purpose |
+|---|---|---|
+| `<prefix>_evolve` | Tried 2–3 standard rounds and still stuck / user explicitly asked / hit a `capability_gap` | Trigger an evolution cycle; system picks a strategy and returns a plan |
+| `<prefix>_install_gene` | `search_community` returned a high-scoring entry you'll reuse locally | Pull it into the local pool; future recalls hit it directly |
+
+`intent` parameter (when supported):
+
+- `repair`: bug fix / firefighting
+- `optimize`: performance / code quality / process improvement
+- `innovate`: need a new capability the local pool lacks
+
+If `intent` is omitted, the system infers from signals — preferred default.
+
+### 2.3 Output Phase (After Completion)
+
+| Tool | When | Purpose |
+|---|---|---|
+| `<prefix>_record_outcome` | After every substantive task ends (success or failure) | Capture experience so future recalls hit |
+| `<prefix>_export` | User asks to export / migrate node / make a backup | Produce an archive |
+| `<prefix>_status` | User asks "how much has been accumulated" / periodic self-check | See entries / success rate / strategy usage |
+
+## 3. Recall Conventions
+
+- `query`: describes the **task**, not the error string
+  - Good: `"streaming card renders as plain text on chat platform"`
+  - Bad: `"TypeError: Cannot read property 'x' of undefined"`
+- `signals`: 2–4 items, blending the project's signal dictionary (defined in the consuming project's binding) with domain keywords
+- `limit`: default 10 is enough
+
+## 4. Search Community Conventions
+
+- `query`: natural language
+- `type`: `"Gene"` (strategy) or `"Capsule"` (event snapshot). Bug fix → Capsule; new capability → Gene
+- `outcome: "success"`: filter out failed attempts
+
+Score interpretation (typical thresholds — adjust per project):
+
+| Field | Worth referencing | Directly adoptable |
+|---|---|---|
+| `similarity` | > 0.75 | > 0.85 |
+| `gdi_score` (or quality) | > 30 | > 40 |
+| `signature` | `present` (publisher signed) | required for high-trust |
+| `confidence` (author self-rating) | > 0.7 | > 0.8 |
+
+## 5. Record-Outcome Quality Rules
+
+```json
+{
+  "geneId": "<known-gene-id-or-ad_hoc>",
+  "signals": ["<signal1>", "<signal2>", "<domain-keyword>"],
+  "status": "success | failed",
+  "score": 0.9,
+  "summary": "Fixed X by doing Y"
+}
+```
+
+### 5.1 Required `summary` Format
+
+`summary` must contain both **the problem** and **the fix**:
+
+- `"Fixed X by doing Y"`
+- `"Learned X: Y works, Z does not"`
+- `"Confirmed X behaves as Z under condition W"`
+
+**Forbidden generic strings**: `"stable_no_error"`, `"heuristic_delta"`, `"task_done"`, `"success"`, `"ok"`, `"done"`. These produce zero recall value.
+
+Length: < 200 chars. Specific enough that future-you understands without context.
+
+### 5.2 Required `signals` Quality
+
+- At least 2 items
+- At least 1 must be a **domain keyword** (e.g., `streaming_render`, not just `log_error`)
+- Use the project's signal dictionary as the source — defined in the consuming project's `.cursor/rules/project/<name>-memory.mdc` (template signal dictionary: `../examples/project-evox/gep-memory.md#signals-dictionary`)
+
+### 5.3 `score` Rubric
+
+| Score | Meaning |
+|---|---|
+| 0.9+ | One-shot, no trial-and-error |
+| 0.7–0.9 | < 3 trial-and-error rounds, eventual success |
+| 0.5–0.7 | Many rounds but eventual success |
+| 0.3–0.5 | Failure with a useful lesson; pair with `status: "failed"` |
+| < 0.3 | Complete crash; still record, with signals naming the trap |
+
+## 6. Forbidden
+
+- Don't fabricate signals to pad out (no specific signal = the task isn't substantive enough; skip the record).
+- Don't use `"ad_hoc"` as a `geneId` excuse to drop signals (when `geneId` is fuzzy, signals must be **more** specific).
+- Don't mark failures as success (failures are valuable to the community and future-you).
+- Don't blindly trust similarity < 0.7 community hits (treat as inspiration, not blueprint).
+- Don't recall / record at every sub-step (granularity = "one user-visible delivery").
+- Don't skip the recall at the start of a substantive task (even if you predict a miss, query once for traceability).
+
+## 7. Workflow Examples
+
+### Scenario A: Fixing a Streaming-Render Bug
+
+1. `recall` query=`"streaming message renders as plain text"` signals=`["streaming_render","render_mode"]`
+2. Local miss → `search_community` same query, type=`Capsule`, outcome=`success`
+3. Hit at similarity 0.78, signature present → read payload for the approach
+4. Apply the approach + run E2E (per `../common/quality-gates.mdc`)
+5. `record_outcome` signals=`["streaming_render","render_mode","<config-key>"]` summary=`"Fixed plain-text rendering by setting renderMode=card in config (verified via E2E)"` score=0.95
+
+### Scenario B: Cross-Language Port, Stuck on Trait Design
+
+1. Run pre-flight scan per `multi-worktree.mdc`
+2. `recall` query=`"port lifecycle module to Rust"` signals=`["lang_port","lifecycle"]`
+3. Local + community both miss → try standard implementation, stuck on hook trait design
+4. `evolve` context=`"Porting EventLifecycle from TS to Rust. TS uses duck-typed hook interface; Rust needs explicit trait but hook set is open-ended."` intent=`"innovate"`
+5. Implement per the returned plan + run tests
+6. `record_outcome` signals=`["lang_port","lifecycle","trait_design","async_hooks"]` summary=`"Ported EventLifecycle to Rust using Box<dyn Hooks + Send + Sync>; erased generics at storage boundary to avoid explosion"` score=0.85
+
+### Scenario C: Reusable Community Strategy Discovered
+
+1. `search_community` hit a Gene; signature present, gdi_score > 40, domain match
+2. `install_gene` to load it into the local pool
+3. Future `recall` will hit the local version directly — no community-search credit needed
+
+## 8. Coordination With Other Rules
+
+- `../common/quality-gates.mdc#post-change-review--e2e-gate`: only `record_outcome` after E2E passes — captured experience is verified
+- `../common/architecture.mdc#single-interface-definition`: before refactoring an interface, `recall` similar refactor pitfalls
+- `multi-worktree.mdc`: cross-worktree conflicts can be recorded with a `worktree_conflict` signal for future avoidance
+- Consuming project's `.cursor/rules/project/<name>-memory.mdc`: project-specific tool prefix, server name, signal dictionary (template: `../examples/project-evox/gep-memory.md`)

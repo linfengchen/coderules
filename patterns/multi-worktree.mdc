@@ -1,0 +1,136 @@
+---
+description: Coordination rules for repos that run multiple git worktrees / multiple parallel agent sessions on the same codebase. Pre-flight scan, claim mechanism, conflict resolution. Triggered when the user mentions worktree / parallel sessions / multi-agent collaboration; or asks "continue / port / implement X" in a repo that has multiple `git worktree list` entries; or starts work on a long-lived feature branch.
+alwaysApply: false
+---
+
+# Multi-Worktree / Multi-Session Coordination
+
+When a repo runs several git worktrees in parallel (different branches, different agent sessions, different humans), the same file or module can easily be claimed twice. This rule defines the pre-flight scan, the claim mechanism, and conflict resolution.
+
+The repo's specific worktree paths and parity-tracking docs are bound in the consuming project's own `.cursor/rules/project/<name>-monorepo.mdc`. See `../examples/project-evox/evox-monorepo.md` for a template.
+
+## 1. Pre-Flight: 4 Mandatory Scans Before Starting
+
+Whenever you receive a "continue / get started / port / implement X" directive, **before writing a single line of code**, run:
+
+### 1.1 List All Worktrees & Their Branches
+
+**Don't hardcode worktree paths** (it'll miss newly created ones). Discover them dynamically with `git worktree list`:
+
+```bash
+cd <repo-root> && git worktree list | awk '{print $1}' | while read wt; do
+  [ -d "$wt" ] || continue
+  echo "=== $wt ==="
+  (cd "$wt" && git branch --show-current && git log --oneline -2 && \
+   echo "-- dirty:" && git status --short | head -15 && \
+   echo "-- handoff:" && [ -f HANDOFF.md ] && head -10 HANDOFF.md || echo "(no HANDOFF.md)")
+  echo
+done
+```
+
+For each discovered worktree, mentally note what phase it's in. **Three signals matter most**:
+
+- The most recent commit subject (which phase the branch is pushing)
+- `git status --short` (dirty = active session)
+- The `Status:` field in `HANDOFF.md` (in-progress / paused / done)
+
+### 1.2 Scan Whether the Target File / Module Is Already Claimed
+
+About to modify a file or module — first scan all worktrees:
+
+```bash
+TARGET="path/to/target/file.ext"
+MODULE="path/to/target/module"
+
+for wt in $(cd <repo-root> && git worktree list | awk '{print $1}'); do
+  [ -d "$wt" ] || continue
+  echo "=== $wt ==="
+  (cd "$wt" && git status --short "$MODULE" 2>/dev/null | head -20)
+  (cd "$wt" && git log --oneline -20 | grep -i "$(basename "$TARGET" | cut -d. -f1)" | head -5)
+done
+```
+
+**If any worktree shows uncommitted changes or a recent commit hit, stop immediately** and shift to "Conflict Handling".
+
+### 1.3 Compare File-Name Candidates (Avoid `foo.ext` vs `foo_module.ext` Duplication)
+
+Cross-language ports / refactors often have no fixed naming rule. When scanning, **grep on the basename keyword** rather than fixating on one candidate name:
+
+```bash
+rg --files <target-dir> | grep -iE "(<keyword1>|<keyword2>)"
+```
+
+### 1.4 Read the Status Document
+
+If the project has a parity / progress document (e.g., `docs/parity-matrix.md`, `docs/migration-status.md`, `ROADMAP.md`):
+
+```bash
+cat <repo>/docs/<status-doc>.md | grep -A2 -iE "<keyword>"
+```
+
+Status docs are the source of truth for cross-worktree progress; read first.
+
+## 2. Conflict-Handling Rules
+
+If the pre-flight finds overlap, **do not start coding**. Resolve in priority order:
+
+1. **Anything pushed to origin cannot be unilaterally overwritten**
+   - Whoever pushes to origin first sets the baseline.
+   - Late-comers must add changes on top of the baseline; do not open a parallel file.
+
+2. **Locally uncommitted work has a duty of care, but must not block origin progress**
+   - If the other side is dirty, stash or commit their work to their own branch first; then evaluate reuse.
+
+3. **When the call isn't immediately clear, stop and AskQuestion**
+   - Lay out: who is in which worktree, current state (pushed / committed / dirty), the difference between the two approaches.
+   - Let the user decide, or have them coordinate between sessions.
+
+4. **Never create a second parallel implementation**
+   - When the module already has `lifecycle.<ext>`, do not create `event_lifecycle.<ext>` / `lifecycle_v2.<ext>` / `lifecycle_full.<ext>`.
+   - To add content → modify the existing file; segment via commit history.
+
+## 3. Claim Mechanism: HANDOFF.md
+
+Before any worktree begins a task that touches **more than 1 file or projects to > 200 lines**, write at the worktree root:
+
+```
+<worktree-root>/HANDOFF.md
+```
+
+Format:
+
+```markdown
+# Handoff Note -- <branch-name>
+
+- Owner session: <transcript uuid, or human + timestamp>
+- Started: <UTC timestamp>
+- Scope: which files / modules are being touched
+- Expected output files: full paths of files that will be added / modified
+- Blockers / deferred: upstream/downstream work this depends on but won't touch
+- Status: in-progress / paused / done
+```
+
+- Write one for each new task; on completion update Status=done — don't delete.
+- Other sessions see who's doing what via `cat */HANDOFF.md` in pre-flight step 1.
+- HANDOFF.md is local-only — never commit (add to `.git/info/exclude` or `.gitignore`).
+
+## 4. Completion Handoff
+
+After a task is done:
+
+1. `git push` your branch
+2. Update the project's status document (e.g., `docs/parity-matrix.md`, `docs/migration-status.md`) with the post-change state (done / partial / skeleton)
+3. Set this worktree's `HANDOFF.md` Status to `done`
+4. If this work **partially depends on another worktree's unfinished task**, append `// waits on <branch>: <reason>` at the status-doc line so the downstream session sees the relay path
+
+## 5. Red Lines
+
+- Forbidden to start changing files without scanning other worktrees first
+- Forbidden to create a new module that overlaps the responsibility of an existing file
+- Forbidden to unilaterally revert a commit someone else has pushed, unless the user explicitly authorizes it
+- When two sessions are working the same module simultaneously, both pre-flights must raise warnings, and the user decides before either side acts
+
+## See Also
+
+- `../common/decision-hygiene.mdc` — pre-flight scan results are the canonical source of evidence anchors
+- Consuming project's `.cursor/rules/project/<name>-monorepo.mdc` — project-specific worktree paths, status-doc location (template: `../examples/project-evox/evox-monorepo.md`)

@@ -1,0 +1,82 @@
+---
+description: Architecture decoupling, code quality, and structural integrity rules — applies to any monorepo with cross-package APIs and IPC glue layers
+alwaysApply: true
+---
+
+# Architecture & Code Quality
+
+## Single Interface Definition
+
+- Each interface / type is defined in **one** package. All other packages reference it via `import type`.
+- Forbidden: defining similar interfaces in multiple packages and bridging them with an adapter layer (e.g., `EvolutionHooks` once defined in `agent/types.ts` and again in `evo-session/hooks.ts` — never again).
+- When adding a field to an interface, **synchronously** check every consumer's wiring code (e.g., `setEvolution` in `main.ts`) to confirm the new field is forwarded correctly.
+
+### Extension to Cross-Process / Cross-Language Glue
+
+The same principle applies to IPC / protocol channels:
+
+- The repo's existing **MCP** glue (`crates/evox-mcp`, stdio JSON-RPC) is the canonical cross-language layer. Any new requirement that needs "bolt-on interpreted runtime / hot reload" **must reuse the MCP server subprocess pattern**. Don't build a second IPC / socket / private RPC channel.
+- IM channel adapters go through `evox-channels` (Slack / Feishu / ...). Don't reach around the trait to wire a new platform directly into the trunk.
+- If you believe the existing glue layer is insufficient, list the concrete shortcomings per `decision-hygiene.mdc#2-evidence-anchors`, explain why extending it is worse than building a new one, and let the user decide.
+
+## No Swallowed Errors
+
+The full discipline lives in `error-handling.mdc`. This repo additionally requires: every error log line carries a `[module-name]` prefix for grep-locating.
+
+## Single File Responsibility
+
+See `clean-code-core.mdc#structural-constraints` for the 500-line hard cap. This repo's preferred split axes: data layer / business logic / prompt construction / network communication — each in its own file. After the split, keep the original file as a barrel that re-exports the public API so consumers see zero changes. See `refactoring-guidelines.mdc#file-split-pattern`.
+
+## Strict Type Boundaries (Public-API Tightening)
+
+The general rule lives in `error-handling.mdc#4-no-type-system-escape-hatches-across-public-apis`. This repo enforces a **stricter** stance on the TS side:
+
+- Cross-package public APIs forbid `any` as parameter or return type — typed interfaces are mandatory.
+- Internal helpers may use `any`, but exported function signatures must be explicit.
+- Read the source of any third-party library before calling it; verify the actual signature instead of papering over it with `any`.
+
+The Rust counterpart: `../lang/clean-code-rust.mdc#error-handling` (no `unwrap()` / `expect()` in production paths).
+
+## No Duplicate Functions
+
+- The same logic must not have two implementations, even with different parameter names.
+- For backward-compatible aliasing, use `export const oldName = newName;`.
+
+## Variables Must Be Used
+
+- Declared variables / imported modules must be consumed; otherwise delete them.
+- A computed result must have a consumer: if `buildReflectionContext()` returns a string, confirm it's injected into the prompt or written to a file. Don't compute and discard.
+- After adding a new evolver-module call, verify its return value is actually propagated downstream.
+
+## Dynamic Imports Must Have Fallbacks
+
+See `../lang/clean-code-typescript.mdc#async--await` for the TS `import()` fallback rule. The same applies to Rust `dlopen` / dynamic library loading: it must have a fallback path **and** a meaningful diagnostic message.
+
+## Barrel Export Completeness
+
+- A package's `index.ts` re-exports every public type and function.
+- After splitting a large file, the barrel must re-export every submodule's public API.
+- Adding a new export → check whether the barrel needs an update at the same time.
+
+## Monorepo Dependency Chain
+
+After modifying a low-level package's types / interfaces, recompile in dependency order:
+
+```
+agent (types.ts) -> evo-session (hooks.ts) -> coding-agent (main.ts, agent-session.ts)
+```
+
+Compiling out of order leaves consumers reading stale `.d.ts`, producing runtime drift between source and bundle.
+
+Implicit dependencies (e.g., `coding-agent` dynamically imports `@evox/evo-session`) must be declared in `package.json` `optionalDependencies`.
+
+## Wiring Completeness
+
+When a hooks / plugin interface gets a new method, check **all four** wiring sites — none can be skipped:
+
+1. The interface definition (`types.ts`)
+2. The implementation (`hooks.ts`)
+3. The delegation / forwarding (`setEvolution` in `main.ts`)
+4. The call site (lifecycle methods in `agent-session.ts`)
+
+Missing any one renders the new method useless at runtime.
