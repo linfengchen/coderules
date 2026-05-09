@@ -118,10 +118,10 @@ install_cursor() {
   echo
   green "Cursor install complete."
   echo "  • Open $project_dir in Cursor; rules activate automatically per frontmatter."
-  echo "  • To bind project-specific values, copy a template:"
+  echo "  • To bind project-specific values, copy a template (rename .md → .mdc):"
   echo "      mkdir -p $project_dir/.cursor/rules/project"
   echo "      cp $CODERULES_HOME/examples/project-evox/feishu-sdk.md \\"
-  echo "         $project_dir/.cursor/rules/project/<your-binding>.mdc"
+  echo "         $project_dir/.cursor/rules/project/your-binding.mdc"
 }
 
 install_claude() {
