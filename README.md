@@ -32,10 +32,13 @@ For the full layer/file map see [`INDEX.md`](./INDEX.md).
 # Cursor — fetch rules + skill into the current project
 curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s cursor
 
+# Cursor (global, all projects on this machine — pastes into User Rules)
+curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s global
+
 # Claude Code — install aicoding skill globally
 curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s claude
 
-# Both, into a specific project
+# Both project-level (Cursor rules + Claude skill)
 curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s all ~/path/to/your/repo
 ```
 
@@ -67,7 +70,7 @@ This drops the four layers as **plain files** into `.cursor/rules/`. To update: 
 
 ## Install Details (per platform)
 
-### Cursor
+### Cursor — Project Level (recommended)
 
 `install.sh cursor [project_dir]` does:
 
@@ -76,6 +79,34 @@ This drops the four layers as **plain files** into `.cursor/rules/`. To update: 
 3. `ln -s` for each of `common/`, `lang/`, `patterns/`, `aicoding/`
 
 Symlinks (not copies) by design — refresh the cached tarball / pull once and every consuming project picks up the update. `examples/*.md` is never loaded by Cursor (extension is `.md`, not `.mdc`).
+
+### Cursor — Global (all projects on this machine)
+
+Cursor stores **User Rules** (Settings → Rules for AI) as a single text blob applied to every project. There is no `~/.cursor/rules/*.mdc` directory equivalent. To install globally:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s global
+```
+
+This:
+
+1. Fetches the rule pack
+2. Concatenates the 6 always-on rules into `~/.coderules/USER-RULES.md` (~32 KB / ~8K tokens, frontmatter stripped)
+3. **Auto-copies to your clipboard** (macOS `pbcopy` / Linux `xclip` / Wayland `wl-copy`)
+4. Tells you to paste into Cursor → Settings → Rules for AI → User Rules → Save
+
+Trade-offs vs project-level:
+
+| Aspect | Project (`cursor`) | Global (`global`) |
+|---|---|---|
+| Activation | per-project `.cursor/rules/` | every project |
+| Layered triggers (glob/desc) | yes | **no — all rules become always-on** |
+| Token cost | ~7K (always-on) + on-demand | ~8K (everything always-on) |
+| Update mechanism | re-run `install.sh cursor` | re-run `install.sh global` + re-paste |
+| Cross-machine sync | per repo (git) | per machine (manual paste) |
+| Project conflicts | n/a | project rules win (Cursor priority) |
+
+**Recommendation**: project-level for serious work; global as a "quick-start" for personal projects without per-project setup.
 
 ### Claude Code
 
