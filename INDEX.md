@@ -28,7 +28,7 @@ coderules/
 |---|---|---|---|
 | **common/** | Language-agnostic principles, decision hygiene, gates, cross-language conventions | mixed (6 always-on / 4 triggered) | Always-on tier injected every prompt |
 | **lang/** | Per-language syntax, formatter, test framework | ✗ (globs) | Only when editing the corresponding language file |
-| **patterns/** | Architectural patterns (multi-worktree, plugin, IM bot, memory MCP, persona) — project-agnostic | ✗ (desc/globs) | Only when the project has the corresponding feature |
+| **patterns/** | Architectural patterns (multi-worktree, multi-agent, plugin, IM bot, memory MCP, persona, database) — project-agnostic | ✗ (desc/globs) | Only when the project has the corresponding feature |
 | **examples/** | Reference templates (`.md`, not `.mdc`) — Cursor never loads them | n/a (not loaded) | Documentation only |
 
 ---
@@ -46,7 +46,7 @@ To prevent rule-set bloat from diluting agent attention, keep the **always-on ti
 | `common/decision-hygiene.mdc` | Claim decomposition / anchors — needed up-front to prevent reasoning drift |
 | `common/error-handling.mdc` | Error discipline — every code change touches control flow |
 | `common/quality-gates.mdc` | "Are you done?" gate — fires after every change |
-| `common/security-secrets.mdc` | Security cannot be opt-in; cost of missing is too high |
+| `common/security-guide.mdc` | Security cannot be opt-in; cost of missing is too high |
 
 ### Triggered (loaded only when needed)
 
@@ -58,10 +58,12 @@ To prevent rule-set bloat from diluting agent attention, keep the **always-on ti
 | `common/testing-principles.mdc` | globs — `**/test/**`, `**/*.test.*`, `**/*.spec.*` |
 | `lang/*.mdc` | globs per language |
 | `patterns/multi-worktree.mdc` | desc — multi-worktree / parallel session / continue-port-implement on multi-branch repo |
+| `patterns/multi-agent.mdc` | desc — running multiple agents / sessions / `best-of-n` against the same repo |
 | `patterns/plugin-architecture.mdc` | globs — `extensions/`, `plugins/`, `addons/` |
 | `patterns/im-bot-integration.mdc` | globs — `bridge/`, `bot/`, `im/`, `channels/` |
 | `patterns/memory-mcp-discipline.mdc` | desc — when memory-MCP available + substantive task |
 | `patterns/persona-architecture.mdc` | globs — `persona/`, `style/`, `mention/` |
+| `patterns/database-patterns.mdc` | desc — SQL/NoSQL schema, indexing, transactions, ORM N+1 audit |
 
 ### Why this matters
 
@@ -80,19 +82,19 @@ When adding a new rule, default to `alwaysApply: false` and prove a triggering n
 | File | Responsibility |
 |---|---|
 | `clean-code-core.mdc` | KISS / YAGNI / SRP / DRY; 500/120/3 limits; naming / comment red lines |
-| `architecture.mdc` | Single interface definition / barrel / wiring completeness / single cross-process glue |
+| `architecture.mdc` | Single interface definition, barrel / wiring completeness, single cross-process glue |
 | `decision-hygiene.mdc` | **Exclusive**: claim decomposition / evidence anchors / explicit retraction / temporal layering / commitment boundary |
 | `error-handling.mdc` | Universal error discipline (no swallowed errors, validate at boundaries, no escape hatches across public APIs) |
-| `refactoring-guidelines.mdc` | barrel + delegation split, gradual `any` tightening |
+| `refactoring-guidelines.mdc` | barrel + delegation split, gradual `any` tightening, large-file prevention, common refactor moves (extract service / replace conditional with strategy) |
 | `quality-gates.mdc` | Completion Standard + Post-Change Review & E2E Gate + Git Hooks |
 | `comments-docs.mdc` | Public-API doc / TODO / Deprecation / Stability markers (per Google Style) |
 | `imports.mdc` | Three-segment grouping, alphabetical, anti-patterns (per Google Style) |
-| `security-secrets.mdc` | Credentials, log redaction, input trust boundary, injection defense |
+| `security-guide.mdc` | Credentials, log redaction, input trust boundary, injection defense, web operational hardening + framework entry-point cheat sheet |
 | `testing-principles.mdc` | Pyramid, AAA, naming, mock boundaries, coverage philosophy |
 
 ---
 
-## lang/ (4 files)
+## lang/ (6 files)
 
 | File | globs | Responsibility |
 |---|---|---|
@@ -100,22 +102,26 @@ When adding a new rule, default to `alwaysApply: false` and prove a triggering n
 | `clean-code-rust.mdc` | `**/*.rs` | naming / `Result` / `?` / ownership / async / `unsafe` |
 | `rust-fmt-discipline.mdc` | `**/*.rs` | rustfmt counter-example library + write-side proactive alignment |
 | `typescript-testing.mdc` | `**/test/**/*.test.ts` | Vitest framework specifics |
+| `clean-code-python.mdc` | `**/*.py,**/*.pyw` | Python clean-code — naming, typing, error handling, async, dataclasses |
+| `clean-code-go.mdc` | `**/*.go` | Go clean-code — naming, error handling, interfaces, concurrency, structs |
 
-> Reserved slot: future Python / Go / Java additions get `lang/<lang>.mdc` and a corresponding `*-testing.mdc`.
+> Future Java / Kotlin / per-test-framework rules get their own `lang/<name>.mdc` when a real consumer needs them — not before.
 
 ---
 
-## patterns/ (5 files)
+## patterns/ (7 files)
 
 Architectural patterns extracted to be project-agnostic. Each pattern expects a project-side binding (in your own repo's `.cursor/rules/project/<name>.mdc`) for concrete values.
 
 | File | alwaysApply | Triggered by | Expected binding |
 |---|---|---|---|
 | `multi-worktree.mdc` | ✗ (desc) | "continue / port / implement X" on a multi-branch repo | `project/<name>-monorepo.mdc` (paths only) |
+| `multi-agent.mdc` | ✗ (desc) | running multiple agents / sessions / `best-of-n` against the same repo | `project/<name>-monorepo.mdc` (module-axis table, magnet files, test commands) |
 | `plugin-architecture.mdc` | ✗ (globs) | `extensions/`, `plugins/`, `addons/` | `project/<name>-extension.mdc` |
 | `im-bot-integration.mdc` | ✗ (globs) | `bridge/`, `bot/`, `im/`, `channels/` | `project/<platform>-sdk.mdc` |
 | `memory-mcp-discipline.mdc` | ✗ (desc) | Memory-MCP available + substantive task | `project/<name>-memory.mdc` |
 | `persona-architecture.mdc` | ✗ (globs) | `persona/`, `style/`, `mention/` | `project/<name>-persona.mdc` |
+| `database-patterns.mdc` | ✗ (desc) | SQL / NoSQL schema design, indexing, transaction & ORM N+1 audit | `project/<name>-database.mdc` |
 
 ---
 
@@ -155,7 +161,7 @@ To deploy: copy a template into your repo's `.cursor/rules/project/`, rename `.m
 | `architecture.mdc` | `common/architecture.mdc` | move + dedupe (error-handling extracted) |
 | `decision-hygiene.mdc` | `common/decision-hygiene.mdc` | move |
 | `refactoring-guidelines.mdc` | `common/refactoring-guidelines.mdc` | move |
-| `project-standards.mdc` | **split into 3** | → `common/quality-gates.mdc` + `common/security-secrets.mdc` + `project/evox-monorepo.mdc` |
+| `project-standards.mdc` | **split into 3** | → `common/quality-gates.mdc` + `common/security-guide.mdc` + `project/evox-monorepo.mdc` |
 | `clean-code-typescript.mdc` | `lang/clean-code-typescript.mdc` | move + dedupe |
 | `clean-code-rust.mdc` | `lang/clean-code-rust.mdc` | move + dedupe |
 | `rust-fmt-discipline.mdc` | `lang/rust-fmt-discipline.mdc` | move |
@@ -168,7 +174,7 @@ To deploy: copy a template into your repo's `.cursor/rules/project/`, rename `.m
 | — (new) | `common/error-handling.mdc` | extracted |
 | — (new) | `common/comments-docs.mdc` | per Google Style |
 | — (new) | `common/imports.mdc` | per Google Style |
-| — (new) | `common/security-secrets.mdc` | extracted |
+| — (new) | `common/security-guide.mdc` | extracted |
 | — (new) | `common/testing-principles.mdc` | extracted |
 
 ### v2 → v2.1 (English Unification)
@@ -218,6 +224,26 @@ Outcome: always-on count `13 → 7`, always-on tokens `~18K → ~9K` (-50%).
 | `project/mbti-persona.mdc` | `examples/project-evox/mbti-persona.md` |
 
 Extension change `.mdc → .md` ensures Cursor will not auto-inject these. Always-on tier now `7 → 6` files. Project-specific bindings (if any) live in the **consuming** project's `.cursor/rules/project/`, not in `coderules/`.
+
+### v2.4 → v2.5 (Targeted Additions, no always-on growth)
+
+Three real additions plus two salvage merges. Always-on tier unchanged at 6 files.
+
+| Change | Where | Why |
+|---|---|---|
+| `lang/clean-code-python.mdc` (new) | lang/ | Python language support; glob-triggered on `**/*.py` |
+| `lang/clean-code-go.mdc` (new) | lang/ | Go language support; glob-triggered on `**/*.go` |
+| `patterns/database-patterns.mdc` (new) | patterns/ | SQL/NoSQL schema, indexing, transactions, ORM N+1; desc-triggered |
+| `patterns/multi-agent.mdc` (new) | patterns/ | Hard rules for parallel-agent runs (worktree isolation, magnet files, git constraints, pre-merge checklist). Companion to `multi-worktree.mdc` |
+| `common/security-guide.mdc` (extended) | common/ | New §7 "Operational Hardening (Web)": security headers cheat sheet, rate limiting, framework entry-point table (Express / FastAPI / Spring / Django) |
+| `common/refactoring-guidelines.mdc` (extended) | common/ | New "Common Refactoring Moves" section: extract service layer, conditional → strategy table |
+
+Rejected during v2.5 review (would have bloated trigger surface or duplicated existing rules):
+
+- A standalone `security-owasp-hardening.mdc` — overlapped 60% with `security-guide.mdc`; framework cheat-sheet salvaged into §7
+- A standalone `refactoring-patterns.mdc` — 80% React-specific framework lore; two truly universal moves salvaged into `refactoring-guidelines.mdc`
+- `api-documentation.mdc` / `readme-standards.mdc` — README/changelog templates are not "code rules"; agents don't repeatedly touch them
+- Phantom test-framework files (`*-jest`, `*-mocha`, `pytest`) — never written to disk; INDEX has been corrected
 
 ---
 

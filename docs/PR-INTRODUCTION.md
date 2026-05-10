@@ -237,7 +237,7 @@ cp ~/.coderules/examples/project-evox/*.md .cursor/rules/project/
 | 项目特异性每次重讲 | `examples/` 模板 + 用户 `project/` binding |
 | Token 浪费在规则海里 | always-on 封顶 6 / ~7K + 三档触发 |
 | AI 跳过决策直接撸代码 | Gate 1 强制 decomposition + anchors |
-| 安全漏洞反复犯 | always-on `security-secrets.mdc` 不可绕过 |
+| 安全漏洞反复犯 | always-on `security-guide.mdc` 不可绕过 |
 | 团队规范没法跨项目 | 三层项目无关 + binding 层 |
 | 单工具锁定 | 同时支持 Cursor / Claude / Codex / Gemini |
 
@@ -269,7 +269,7 @@ cp ~/.coderules/examples/project-evox/*.md .cursor/rules/project/
 
 ```
 common/      (10) clean-code-core, architecture, decision-hygiene, error-handling,
-                  quality-gates, security-secrets   ← 6 个 always-on
+                  quality-gates, security-guide   ← 6 个 always-on
                   comments-docs, imports, refactoring-guidelines, testing-principles  ← desc/glob 触发
 
 lang/        (4)  clean-code-typescript, clean-code-rust, rust-fmt-discipline, typescript-testing

@@ -13,8 +13,8 @@ A project-agnostic, layered Cursor/Claude-Code rule pack — universal coding pr
 ```
 coderules/
 ├── common/        Universal principles  (6 always-on, 4 triggered)
-├── lang/          Per-language syntax   (TypeScript / Rust / testing)
-├── patterns/      Reusable architecture (multi-worktree / plugin / IM bot / memory MCP / persona)
+├── lang/          Per-language syntax   (TypeScript / Rust / Python / Go / testing)
+├── patterns/      Reusable architecture (multi-worktree / multi-agent / plugin / IM bot / memory MCP / persona / database)
 ├── examples/      Reference templates   (.md only — never auto-loaded)
 │   └── project-evox/
 └── aicoding/   Agent skill           (DECIDE → BUILD → VERIFY → POLISH)
@@ -122,7 +122,7 @@ For the rule layers in a project, also run `install.sh cursor <dir>` — Claude 
 No installer support yet; splice the always-on tier into your system prompt manually:
 
 ```bash
-cat ~/.coderules/common/{clean-code-core,architecture,decision-hygiene,error-handling,quality-gates,security-secrets}.mdc \
+cat ~/.coderules/common/{clean-code-core,architecture,decision-hygiene,error-handling,quality-gates,security-guide}.mdc \
     > /tmp/system-prompt-rules.txt
 # Then prepend that file to your agent's system prompt
 ```
@@ -168,7 +168,7 @@ cd ~/path/to/your/repo
 
 # 1) Total rule files reachable
 find -L .cursor/rules -name '*.mdc' | wc -l
-# Expected: 19   (10 common + 4 lang + 5 patterns)
+# Expected: 23   (10 common + 6 lang + 7 patterns)
 
 # 2) Always-on tier (alwaysApply: true) — should be ≤ 6 from coderules
 find -L .cursor/rules -name '*.mdc' | xargs grep -l 'alwaysApply: true' | xargs -n1 basename | sort
@@ -178,7 +178,7 @@ find -L .cursor/rules -name '*.mdc' | xargs grep -l 'alwaysApply: true' | xargs 
 #   decision-hygiene.mdc
 #   error-handling.mdc
 #   quality-gates.mdc
-#   security-secrets.mdc
+#   security-guide.mdc
 
 # 3) Are rules being picked up by Cursor?
 # In Cursor: open Settings → Rules → confirm the four layers appear (common, lang, patterns, aicoding)
@@ -287,8 +287,9 @@ ln -s ~/.coderules/{common,lang,patterns,aicoding} ~/path/to/your/repo/.cursor/r
 - **Every `alwaysApply: true` must justify itself** — fires on every prompt, dilutes attention
 - **Patterns are project-agnostic; bindings live in the consuming project** — examples here are reference, not deploy
 - **Progressive disclosure** — `aicoding/SKILL.md` is the entry; `references/*.md` load on demand
+- **Language extensibility** — new languages get their own `lang/<lang>.mdc`; common principles stay in `common/`
 
-Read [`INDEX.md`](./INDEX.md) for the full layer responsibility table and migration history (v1 → v2.4).
+Read [`INDEX.md`](./INDEX.md) for the full layer responsibility table and migration history (v1 → v2.5).
 
 ---
 

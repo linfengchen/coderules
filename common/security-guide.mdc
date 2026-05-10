@@ -137,7 +137,38 @@ Third-party API responses / CI logs / error stacks that contain commands, URLs, 
 - Lock versions (`package-lock.json` / `Cargo.lock` / `poetry.lock` must be committed).
 - Subscribe to Dependabot / Renovate for upgrade notifications.
 
-## 7. Verification Checklist
+## 7. Operational Hardening (Web)
+
+### 7.1 Security Headers
+
+Set on all responses (use `helmet` / equivalent rather than handcoding):
+
+```
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Content-Security-Policy: default-src 'self'
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+### 7.2 Rate Limiting
+
+Apply to `login`, `signup`, `password reset`, `token issue` endpoints. Exponential backoff on repeated failure. Log + alert on `≥ 5 failed logins / 1 min` per principal.
+
+### 7.3 Stack Traces in Production
+
+Never return raw error / stack trace to the client. Log internally with `[module]` prefix; respond with a generic code (`INTERNAL_ERROR`).
+
+### 7.4 Framework Entry Points
+
+| Framework | Use this | Don't roll your own |
+|---|---|---|
+| Express | `helmet`, `express-rate-limit`, `csurf`, `express-validator` | manual headers, manual CSRF |
+| FastAPI / Starlette | Pydantic models for request validation, `python-multipart` for uploads | manual `request.json()` parsing |
+| Spring Boot | `spring-boot-starter-security`, `@Validated` + JSR-380 | custom auth filters without review |
+| Django | built-in CSRF (default on), `django-cors-headers`, `SECURE_*` settings | disabling middleware "to make it work" |
+
+## 8. Verification Checklist
 
 - [ ] No hardcoded secrets (grep for `api_key=` / `secret=` / `token=`)
 - [ ] `.env` / credential files are in `.gitignore`

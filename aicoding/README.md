@@ -72,7 +72,7 @@ This skill **does not replace** the existing rule files — it's their **caller*
 
 | Layer | Files | How this skill references them |
 |---|---|---|
-| `common/` | `clean-code-core` / `architecture` / `decision-hygiene` / `quality-gates` / `error-handling` / `security-secrets` (always-on) | Source of Gates 1–3 quantitative limits + discipline |
+| `common/` | `clean-code-core` / `architecture` / `decision-hygiene` / `quality-gates` / `error-handling` / `security-guide` (always-on) | Source of Gates 1–3 quantitative limits + discipline |
 | `common/` | `comments-docs` / `imports` / `refactoring-guidelines` / `testing-principles` (triggered) | Gate 2 / Gate 4 details |
 | `lang/` | `clean-code-typescript` / `clean-code-rust` / `rust-fmt-discipline` / `typescript-testing` | code-craft language specifics |
 | `patterns/` | `multi-worktree` (pre-flight) / `plugin-architecture` / `im-bot-integration` / `memory-mcp-discipline` / `persona-architecture` | Architectural pattern reference, when relevant |

@@ -1,0 +1,206 @@
+---
+description: Database design and query optimization patterns — SQL schema design, indexing, transactions, ORM usage, NoSQL best practices
+alwaysApply: false
+---
+
+# Database Patterns
+
+Universal database design principles for SQL and NoSQL databases.
+
+## 1. Schema Design
+
+### 1.1 SQL Schema
+
+- Use explicit `NOT NULL` constraints wherever possible
+- Use appropriate data types: `VARCHAR(n)` over `TEXT`, `TIMESTAMP` over `VARCHAR` for dates
+- Use `UUID` or `BIGINT` for primary keys (avoid auto-increment for distributed systems)
+- Use `ENUM` for finite value sets (with caution: migrations are expensive)
+- Add `created_at` and `updated_at` timestamps to every table
+
+```sql
+-- GOOD — explicit schema with constraints
+CREATE TABLE tasks (
+    id          BIGSERIAL PRIMARY KEY,
+    uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+    title       VARCHAR(255) NOT NULL,
+    description TEXT,
+    status      task_status NOT NULL DEFAULT 'pending',
+    user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_tasks_user_created ON tasks(user_id, created_at DESC);
+```
+
+### 1.2 NoSQL Schema (Document / Key-Value)
+
+- Embed related data when access patterns are consistent
+- Reference when data is shared or accessed independently
+- Use meaningful collection/table names (plural nouns)
+- Avoid deeply nested documents (max 3 levels)
+
+```json
+// GOOD — MongoDB document design
+{
+    "_id": "task-id",
+    "title": "Fix login bug",
+    "status": "in_progress",
+    "assignee": {
+        "id": "user-id",
+        "name": "Jane Doe"
+        // embedded because always needed with task
+    },
+    "comments": [
+        // embed when bounded and accessed together
+    ]
+}
+```
+
+## 2. Indexing
+
+### 2.1 Index Strategy
+
+- **Every** foreign key must be indexed
+- **Every** column used in `WHERE`, `JOIN`, `ORDER BY` must be indexed
+- Composite indexes follow leftmost prefix rule
+- Use covering indexes to avoid table lookups
+
+```sql
+-- GOOD — covering index
+CREATE INDEX idx_tasks_user_status ON tasks(user_id, status)
+INCLUDE (title, created_at); -- PostgreSQL INCLUDE for covering
+```
+
+### 2.2 Index Anti-Patterns
+
+- **Never** index low-cardinality columns alone (e.g., `boolean` with 2 values)
+- **Never** create redundant indexes (if `(a, b)` exists, `(a)` alone is redundant)
+- **Never** index frequently updated columns (index maintenance cost)
+
+## 3. Transactions
+
+### 3.1 ACID Guarantees
+
+- Use transactions for multi-step writes
+- Keep transactions short (avoid user I/O inside transactions)
+- Use appropriate isolation level: `READ COMMITTED` (default), `SERIALIZABLE` for financial data
+
+```typescript
+// GOOD — transaction with error handling
+async function transferFunds(from: string, to: string, amount: number) {
+    await db.transaction(async (tx) => {
+        const fromAccount = await tx.accounts.findForUpdate({ id: from });
+        if (fromAccount.balance < amount) {
+            throw new Error('INSUFFICIENT_FUNDS');
+        }
+
+        await tx.accounts.update(from, { balance: fromAccount.balance - amount });
+        await tx.accounts.update(to, { balance: fromAccount.balance + amount });
+
+        await tx.transactions.create({
+            fromId: from,
+            toId: to,
+            amount
+        });
+    });
+}
+```
+
+### 3.2 Transaction Anti-Patterns
+
+- **Never** hold transactions open during user I/O (e.g., waiting for user confirmation)
+- **Never** nest transactions unnecessarily (use savepoints for partial rollback)
+- **Never** catch and swallow transaction errors without rollback
+
+## 4. ORM Usage
+
+### 4.1 Query Patterns
+
+- Use ORM for simple CRUD; drop to raw SQL for complex queries
+- Avoid N+1 queries: use `join` / `populate` / eager loading
+- Use select hydration (load only needed columns)
+
+```typescript
+// BAD — N+1 query
+const users = await User.findAll();
+for (const user of users) {
+    const posts = await Post.findByUserId(user.id); // N+1!
+}
+
+// GOOD — eager loading
+const users = await User.findAll({
+    include: [{ model: Post, attributes: ['id', 'title'] }]
+});
+```
+
+### 4.2 Migrations
+
+- **Every** schema change must have a migration
+- Migrations are immutable (edit = new migration)
+- Test migrations on staging before production
+- Keep migrations backward-compatible (deploy code before schema change)
+
+## 5. Query Optimization
+
+### 5.1 EXPLAIN ANALYZE
+
+- Use `EXPLAIN ANALYZE` on slow queries (> 100 ms)
+- Look for: Seq Scan on large tables, missing indexes, high row estimates
+- Optimize the query or add index; never optimize without measurement
+
+```sql
+-- BAD — sequential scan on large table
+EXPLAIN ANALYZE SELECT * FROM tasks WHERE title = 'important';
+-- Seq Scan on tasks (cost=0.00..1234.56 rows=1 width=1234)
+
+-- GOOD — add index, use it
+CREATE INDEX idx_tasks_title ON tasks(title);
+EXPLAIN ANALYZE SELECT * FROM tasks WHERE title = 'important';
+-- Index Scan using idx_tasks_title on tasks
+```
+
+### 5.2 Pagination
+
+- Always paginate list queries (no unbounded `SELECT *`)
+- Use cursor-based pagination for infinite scroll
+- Include `total` count for admin UIs only (expensive on large tables)
+
+## 6. NoSQL Specific
+
+### 6.1 MongoDB
+
+- Use `lean()` in Mongoose for read-only queries (no document overhead)
+- Use projection to limit fields returned
+- Avoid `$lookup` on large collections (use application-level join)
+
+```typescript
+// GOOD — lean query
+const tasks = await Task.find({ userId }).lean().select('id title status');
+```
+
+### 6.2 Redis
+
+- Use appropriate data structures (String, Hash, Set, Sorted Set)
+- Set TTL on cache keys to prevent unbounded growth
+- Use Redis pipelining for batch operations
+
+## 7. Backup & Recovery
+
+- Automated daily backups with point-in-time recovery (PITR)
+- Test restore procedure quarterly
+- Retain backups for compliance period (typically 30–90 days)
+- Use read replicas for heavy read workloads
+
+## 8. Monitoring
+
+- Monitor query latency P50/P95/P99
+- Monitor connection pool utilization
+- Monitor replication lag for read replicas
+- Alert on deadlocks, long-running queries, connection exhaustion
+
+## Related Rules
+
+- `../common/clean-code-core.mdc` — universal principles
+- `../lang/clean-code-python.mdc` — Python ORM patterns (SQLAlchemy, Django ORM)
+- `../lang/clean-code-typescript.mdc` — TypeScript ORM patterns (Prisma, TypeORM)

@@ -133,7 +133,7 @@ install_global() {
     "common/decision-hygiene.mdc"
     "common/error-handling.mdc"
     "common/quality-gates.mdc"
-    "common/security-secrets.mdc"
+    "common/security-guide.mdc"
   )
   local out="$CODERULES_HOME/USER-RULES.md"
 

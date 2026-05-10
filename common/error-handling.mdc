@@ -151,6 +151,6 @@ Symptom fixes are recurrence-prone. Root-cause fixes plus a regression test prev
 ## See Also
 
 - `architecture.mdc#strict-type-boundaries` — public-API type strictness
-- `security-secrets.mdc#input-trust-boundaries` — security-flavored boundary rules
+- `security-guide.mdc#input-trust-boundaries` — security-flavored boundary rules
 - `../lang/clean-code-typescript.mdc#error-handling` — TS-specific syntax
 - `../lang/clean-code-rust.mdc#error-handling` — Rust-specific syntax (`thiserror` / `?` / `let-else`)

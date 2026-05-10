@@ -7,7 +7,7 @@ The first 5 cuts were structural:
 | Cut | Action | Status |
 |---|---|---|
 | 1 | Initial restructure into `common/ lang/ project/` | ✅ done |
-| 2 | Split `project-standards.mdc` → `quality-gates` + `security-secrets` + `evox-monorepo` | ✅ done |
+| 2 | Split `project-standards.mdc` → `quality-gates` + `security-guide` + `evox-monorepo` | ✅ done |
 | 3 | Extract `error-handling.mdc` from `architecture` + `clean-code-typescript` + `clean-code-rust` | ✅ done |
 | 4 | Fill Google-Style gaps: `comments-docs` + `imports` + `testing-principles` | ✅ done |
 | 5 | Downgrade unnecessary `alwaysApply: true` to `false` (`gep-memory`) | ✅ done |
@@ -216,7 +216,7 @@ rg -l 'alwaysApply: false' --type-add 'mdc:*.mdc' -t mdc
   - `common/decision-hygiene.mdc`
   - `common/error-handling.mdc`
   - `common/quality-gates.mdc`
-  - `common/security-secrets.mdc`
+  - `common/security-guide.mdc`
 - `alwaysApply: false` (everything else): 4 `common/` (comments-docs / imports / refactoring-guidelines / testing-principles) + all 4 `lang/` + all 5 `patterns/` = **13 files**
 - `examples/project-evox/*.md`: not loaded by Cursor (extension is `.md`, not `.mdc`)
 

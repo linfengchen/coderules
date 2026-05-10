@@ -1,0 +1,123 @@
+---
+description: Go clean-code conventions — naming, error handling, concurrency, interfaces
+globs: **/*.go
+alwaysApply: false
+---
+
+# Go Clean Code
+
+Core principles live in `../common/clean-code-core.mdc`. This file only covers Go-specific rules.
+
+## Naming & Style
+
+- Packages: short, lowercase, no underscores (`http`, `user`, `task`)
+- Exported names: `PascalCase`
+- Unexported names: `camelCase`
+- Constants: `mixedCaps` or `UPPER_CASE` for global constants
+- File names: `snake_case.go` (e.g., `task_service.go`)
+- Indent with tabs
+- Line width: 100 (gofmt default)
+
+## Error Handling
+
+Universal rules live in `../common/error-handling.mdc`. Go-specific:
+
+- **Always** check errors: `if err != nil` — never ignore
+- Return errors as the last return value
+- Use `fmt.Errorf()` with `%w` verb for wrapped errors
+- Use `errors.Is()` and `errors.As()` for error inspection
+- Sentinel errors for expected conditions: `var ErrNotFound = errors.New("not found")`
+
+```go
+// BAD — error ignored
+result, _ := doSomething()
+
+// GOOD — error handled explicitly
+result, err := doSomething()
+if err != nil {
+    return fmt.Errorf("do something failed: %w", err)
+}
+```
+
+## Interfaces
+
+- Keep interfaces small (1-3 methods)
+- Accept interfaces, return concrete types
+- Use `io.Reader`, `io.Writer`, `io.Closer` where applicable
+- Don't export interfaces unless they're used by external packages
+
+```go
+// GOOD — small, focused interface
+type TaskStore interface {
+    Get(ctx context.Context, id string) (*Task, error)
+    Save(ctx context.Context, task *Task) error
+}
+
+// GOOD — accept interface, return concrete
+func ProcessTask(ctx context.Context, store TaskStore) (*TaskResult, error) {
+    // ...
+    return &TaskResult{...}, nil
+}
+```
+
+## Concurrency
+
+- Use channels for communication between goroutines
+- Don't share memory; share memory by communicating
+- Use `select` for multiple channel operations
+- Use `context.Context` for cancellation and timeouts
+- `sync.WaitGroup` for fan-out patterns
+
+```go
+// GOOD — context with timeout
+ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+defer cancel()
+
+result, err := fetchData(ctx)
+if err != nil {
+    return fmt.Errorf("fetch failed: %w", err)
+}
+```
+
+## Struct Design
+
+- Embedding for composition, not inheritance
+- Use `struct{}` for empty structs (zero memory allocation)
+- Use `omitempty` JSON tag to skip empty fields
+- Use `json:"-"` to exclude fields from JSON
+
+```go
+// GOOD — composition via embedding
+type BaseTask struct {
+    ID        string    `json:"id"`
+    CreatedAt time.Time `json:"created_at"`
+}
+
+type UserTask struct {
+    BaseTask                // composition
+    UserID     string       `json:"user_id"`
+    AssigneeID string       `json:"assignee_id,omitempty"`
+}
+```
+
+## Forbidden Patterns
+
+- No `panic()` in library code (use error returns)
+- No `init()` functions (explicit initialization)
+- No global variables (use dependency injection)
+- No string concatenation in hot loops (use `strings.Builder`)
+- No `interface{}` (use specific types)
+
+## Pre-Code Checklist
+
+1. **Analyze**: Is this concurrent? Do I need channels or mutexes?
+2. **Plan**: What errors can this return? Are they documented?
+3. **Review**: Are interfaces minimal? Is the API idiomatic?
+4. **Output**: Go-idiomatic, error-handled, tested code.
+
+## Related Rules
+
+- `../common/clean-code-core.mdc` — universal principles
+- `../common/error-handling.mdc` — universal error discipline
+- `../common/testing-principles.mdc` — testing philosophy
+- `../lang/clean-code-typescript.mdc` — TypeScript counterpart

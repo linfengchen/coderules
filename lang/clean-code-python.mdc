@@ -1,0 +1,148 @@
+---
+description: Python clean-code conventions — naming, typing, error handling, async, data structures
+globs: **/*.py,**/*.pyw
+alwaysApply: false
+---
+
+# Python Clean Code
+
+Core principles live in `../common/clean-code-core.mdc`. This file only covers Python-specific rules.
+
+## Naming & Style
+
+- Variables / functions: `snake_case`
+- Classes: `PascalCase`
+- Constants: `UPPER_SNAKE_CASE`
+- File names: `snake_case.py`; test files `test_*.py`
+- Indent with 4 spaces (PEP 8)
+- Line width: 100 (Black formatter default)
+- Use type hints for all function signatures (Python 3.9+)
+
+## Type Hints & `Any` Tightening
+
+- **Forbidden**: `Any` in public API signatures without explicit justification
+- Internal helpers may use `Any`, but exported signatures must be explicit
+- Use `Optional[X]` instead of `X | None` for Python < 3.10; `X | None` for 3.10+
+- Use `TypedDict` or `dataclasses` for structured data instead of plain dictionaries
+
+```python
+# BAD
+def process_user(user: Any) -> Any:
+    ...
+
+# GOOD
+from typing import TypedDict
+
+class UserData(TypedDict):
+    id: int
+    name: str
+    email: str
+
+def process_user(user: UserData) -> str:
+    ...
+```
+
+## Error Handling
+
+Universal rules live in `../common/error-handling.mdc`. Python-specific:
+
+- Each `except` must satisfy at least one of: log with structured logger, comment explaining safe-ignore, or re-raise
+- Use specific exception types, not bare `except Exception:`
+- Context managers (`with` statements) for resource cleanup
+
+```python
+# BAD
+try:
+    risky_call()
+except:
+    pass
+
+# GOOD — logged
+try:
+    risky_call()
+except SpecificException as e:
+    logger.error(f"[task-service] risky_call failed: {e}")
+
+# ACCEPTABLE — explicit safe-ignore with context
+try:
+    stat_result = os.stat(path)
+except FileNotFoundError:
+    # Path may not exist; the fallback below handles it
+    stat_result = None
+```
+
+## Async / Await
+
+- Use `asyncio` for concurrent I/O-bound operations
+- Prefer `asyncio.gather()` over sequential `await` for independent operations
+- Always handle `asyncio.TimeoutError` explicitly
+- Use `async with` for async context managers
+
+```python
+# BAD — sequential awaits
+async def fetch_all(urls):
+    results = []
+    for url in urls:
+        result = await fetch(url)  # slow: sequential
+        results.append(result)
+    return results
+
+# GOOD — concurrent
+async def fetch_all(urls):
+    results = await asyncio.gather(*[fetch(url) for url in urls])
+    return results
+```
+
+## Forbidden Patterns
+
+- No mutable default arguments (use `None` and create new object inside)
+- No `import *` (explicit imports only)
+- No `eval()` or `exec()` with untrusted input
+- No `assert` for input validation (raises AssertionError, stripped with -O)
+
+```python
+# BAD — mutable default
+def add_item(item, items=[]):  # shared across calls!
+    items.append(item)
+    return items
+
+# GOOD
+def add_item(item, items=None):
+    if items is None:
+        items = []
+    items.append(item)
+    return items
+```
+
+## Dataclasses & Data Classes
+
+- Use `@dataclass(frozen=True)` for immutable data structures
+- Use `@dataclass(slots=True)` for memory efficiency with many instances
+- Prefer `typing.NamedTuple` for simple immutable tuples
+
+```python
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass(frozen=True, slots=True)
+class UserConfig:
+    id: int
+    name: str
+    email: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+```
+
+## Pre-Code Checklist
+
+1. **Analyze**: Does this need async? What's the I/O pattern?
+2. **Plan**: What types / exceptions should this raise? What's the caller's responsibility?
+3. **Review**: Am I using the right data structure? (list vs set vs dict vs tuple)
+4. **Output**: typed, documented, tested code.
+
+## Related Rules
+
+- `../common/clean-code-core.mdc` — universal principles
+- `../common/error-handling.mdc` — universal error discipline
+- `../common/testing-principles.mdc` — testing philosophy
+- `../lang/clean-code-typescript.mdc` — TypeScript counterpart

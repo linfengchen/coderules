@@ -1,0 +1,308 @@
+---
+description: OWASP Top 10 and framework-specific security rules — injection prevention, auth hardening, data protection, secure headers
+alwaysApply: false
+---
+
+# Security Deep Dive: OWASP Top 10 & Framework Hardening
+
+Universal security rules live in `../common/security-guide.mdc`. This file adds OWASP Top 10 (2021) specifics and framework-level hardening.
+
+## OWASP Top 10 (2021) — Quick Reference
+
+| # | Category | Key Defenses |
+|---|---|---|
+| A01 | Broken Access Control | Enforce authorization at handler level; deny by default; validate ownership |
+| A02 | Cryptographic Failures | Use TLS everywhere; encrypt sensitive data at rest; use argon2/bcrypt for passwords |
+| A03 | Injection | Parameterized queries; args-array for shell; output encoding for XSS |
+| A04 | Insecure Design | Threat modeling; secure defaults; fail securely |
+| A05 | Security Misconfiguration | Harden defaults; disable debug in production; security headers |
+| A06 | Vulnerable & Outdated Components | Dependabot / Renovate; CI audit; pin versions |
+| A07 | Identification & Auth Failures | MFA for admin; rate limiting; secure session management |
+| A08 | Software & Data Integrity Failures | Signed dependencies; CI/CD security; validate checksums |
+| A09 | Security Logging & Monitoring Failures | Structured logging; alert on auth failures; log rotation |
+| A10 | Server-Side Request Forgery (SSRF) | Allowlist outbound destinations; block metadata IPs |
+
+## A01: Broken Access Control
+
+### Horizontal Privilege Escalation
+
+- **Never** trust client-provided IDs to select resources
+- Verify resource ownership in the handler, not just at middleware
+
+```typescript
+// BAD — trusts client-provided user_id
+app.get('/api/tasks/:id', async (req, res) => {
+    const task = await taskRepo.findById(req.params.id);
+    return res.json(task);
+});
+
+// GOOD — verifies ownership
+app.get('/api/tasks/:id', async (req, res) => {
+    const task = await taskRepo.findById(req.params.id);
+    if (!task || task.userId !== req.user.id) {
+        return res.status(404).json({ error: 'NOT_FOUND' });
+    }
+    return res.json(task);
+});
+```
+
+### Vertical Privilege Escalation
+
+- Use role-based access control (RBAC) with least-privilege principle
+- Separate admin routes from user routes
+- Validate permissions at the action level, not just the route level
+
+## A02: Cryptographic Failures
+
+### Password Storage
+
+- **Never** store plaintext passwords
+- **Never** log passwords or password hashes
+- Use `argon2id` (preferred) or `bcrypt` with cost factor ≥ 12
+- **Never** use MD5, SHA1, or unsalted SHA256 for passwords
+
+```python
+# GOOD — argon2id password hashing
+from argon2 import PasswordHasher
+
+ph = PasswordHasher()
+hash = ph.hash(password)
+# Verification
+ph.verify(hash, password)
+```
+
+### TLS / Transport Security
+
+- Enforce HTTPS in production (HSTS header)
+- Disable TLS 1.0/1.1; use TLS 1.2+
+- Use strong cipher suites only
+- Never transmit credentials over HTTP
+
+### Data Encryption at Rest
+
+- Encrypt PII fields in database (email, phone, national ID)
+- Use application-level encryption for highly sensitive data
+- Rotate encryption keys periodically
+
+## A03: Injection
+
+### SQL Injection (Extended)
+
+Beyond parameterized queries (`security-guide.mdc#4-injection-defenses`):
+
+- Use ORM query builders; avoid raw SQL when possible
+- If raw SQL is necessary: use parameterized queries exclusively
+- Never concatenate user input into SQL strings
+
+```typescript
+// BAD — string concatenation
+const sql = `SELECT * FROM tasks WHERE title = '${userInput}'`;
+
+// GOOD — parameterized
+const sql = `SELECT * FROM tasks WHERE title = ?`;
+const tasks = await db.query(sql, [userInput]);
+```
+
+### NoSQL Injection
+
+- MongoDB: use parameterized queries with `$eq`, `$in` operators
+- Never concatenate user input into `$where` or `$expr` clauses
+- Use schema validation at the database level
+
+```typescript
+// BAD — vulnerable to NoSQL injection
+const task = await Task.findOne({ id: req.params.id });
+
+// GOOD — use Mongoose schema validation
+const task = await Task.findById(req.params.id);
+```
+
+### Command Injection
+
+Beyond args-array pattern:
+
+- Whitelist allowed commands
+- Validate command arguments
+- Avoid shelling out to user-controlled commands entirely
+
+## A04: Insecure Design
+
+### Threat Modeling
+
+- Document data flows for new features (especially auth / payment / PII)
+- Identify trust boundaries early
+- Assume third-party APIs will fail or be compromised
+
+### Secure Defaults
+
+- New features: deny by default, opt-in for sensitive operations
+- New API endpoints: require authentication unless explicitly public
+- New admin features: require admin role by default
+
+## A05: Security Misconfiguration
+
+### Security Headers
+
+Set these headers on all responses:
+
+```typescript
+// GOOD — security headers middleware
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('Content-Security-Policy', "default-src 'self'");
+    next();
+});
+```
+
+### Debug Mode
+
+- **Never** run in debug mode in production
+- Disable stack traces in error responses
+- Use different config profiles for development / staging / production
+
+```typescript
+// BAD — stack trace in production
+if (process.env.NODE_ENV === 'production') {
+    app.use((err, req, res, next) => {
+        res.status(500).json({ error: err.stack }); // leaks internals!
+    });
+}
+
+// GOOD — generic error in production
+app.use((err, req, res, next) => {
+    logger.error(`[web] ${err.message}`, { error: err });
+    res.status(500).json({ error: 'INTERNAL_ERROR' });
+});
+```
+
+## A06: Vulnerable Components
+
+Beyond `security-guide.mdc#6-dependency-auditing`:
+
+- Review dependency licenses (avoid GPL in commercial products)
+- Pin transitive dependencies in lock files
+- Use `npm ci` / `cargo build --locked` / `pip install --require-hashes` in CI
+- Monitor GitHub Security Advisories for your dependencies
+
+## A07: Authentication Failures
+
+### Rate Limiting
+
+- Apply rate limiting to auth endpoints (login, signup, password reset)
+- Use exponential backoff on repeated failures
+- Log and alert on repeated auth failures (possible brute force)
+
+```typescript
+// GOOD — rate limiting auth endpoints
+import rateLimit from 'express-rate-limit';
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 attempts
+    message: { error: 'TOO_MANY_ATTEMPTS' }
+});
+
+app.post('/api/auth/login', authLimiter, loginHandler);
+```
+
+### Session Security
+
+- Use secure, HttpOnly cookies for session tokens
+- Set `SameSite=Strict` or `Lax` on session cookies
+- Rotate session tokens on login and privilege changes
+- Implement logout that invalidates server-side session
+
+## A08: Software & Data Integrity
+
+### Dependency Integrity
+
+- Verify package checksums / signatures where available
+- Use lock files (`package-lock.json`, `Cargo.lock`, `poetry.lock`)
+- Avoid `npm install --no-verify` or equivalent bypasses
+
+### CI/CD Integrity
+
+- Sign commits; require signed commits for protected branches
+- Use protected branches with required status checks
+- Limit CI secrets to only the jobs that need them
+
+## A09: Security Logging
+
+Beyond `security-guide.mdc#2-logs-observability`:
+
+- Log authentication events (login, logout, failed attempts)
+- Log authorization failures (access denied)
+- Log administrative actions (user creation, permission changes)
+- Alert on patterns: 5+ failed logins in 1 minute, admin access from new IP
+
+```typescript
+// GOOD — structured security events
+logger.info({
+    event: 'auth.login_failed',
+    userId: req.body.userId,
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    timestamp: new Date().toISOString()
+});
+```
+
+## A10: Server-Side Request Forgery (SSRF)
+
+### Prevention
+
+- Block requests to private IP ranges: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.169.254` (cloud metadata)
+- Use DNS allowlist for outbound requests
+- Validate and sanitize user-provided URLs before fetching
+
+```typescript
+// GOOD — SSRF prevention
+import { isPrivateIP } from './network-utils';
+
+async function fetchUrl(url: string): Promise<Response> {
+    const hostname = new URL(url).hostname;
+    const resolvedIP = await dns.lookup(hostname);
+
+    if (isPrivateIP(resolvedIP)) {
+        throw new Error('Request to private IP blocked');
+    }
+
+    return fetch(url);
+}
+```
+
+## Framework-Specific Hardening
+
+### Express.js
+
+- Use `helmet` middleware for security headers
+- Use `csurf` for CSRF protection on state-changing endpoints
+- Use `express-validator` for input validation
+
+### FastAPI / Starlette
+
+- Use `python-multipart` for file uploads (avoid parsing multipart manually)
+- Use `pydantic` models for request validation (automatic)
+- Enable CORS only for trusted origins
+
+### Spring Boot
+
+- Use `spring-boot-starter-security` for auth
+- Use `@Validated` and JSR-380 annotations for input validation
+- Disable default error messages that leak stack traces
+
+### Django
+
+- Use `django-cors-headers` for CORS
+- Use `django-secure` for security headers
+- Enable Django's built-in CSRF protection (enabled by default)
+
+## Related Rules
+
+- `../common/security-guide.mdc` — universal security foundation
+- `../common/error-handling.mdc` — error discipline
+- `../lang/clean-code-typescript.mdc` — TypeScript security patterns
+- `../lang/clean-code-python.mdc` — Python security patterns
+- `../lang/clean-code-java.mdc` — Java security patterns

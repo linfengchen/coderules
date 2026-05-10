@@ -1,0 +1,187 @@
+---
+description: Hard rules for running multiple agents / sessions in parallel against the same repo — physical isolation, magnet files, git constraints, agents-active registry. Triggered when the user mentions parallel agents / multi-session / "spawn N workers" / best-of-N. Pairs with multi-worktree.mdc (which covers pre-flight scan + HANDOFF claim mechanism).
+alwaysApply: false
+---
+
+# Multi-Agent Hard Rules
+
+When two or more agents / sessions touch the same repository at the same time, the default failure mode is silent: one agent stashes, reverts, or overwrites another agent's uncommitted work, and nobody notices until production breaks. The rules below each prevent a specific class of data loss.
+
+> **Boundary with `multi-worktree.mdc`**: that file covers the **pre-flight scan + claim mechanism** (4 mandatory scans, HANDOFF.md format, conflict resolution priority). This file covers the **operational hard rules** that apply once parallel work is in flight (worktree isolation, magnet files, git constraints, pre-merge checklist). Read both.
+
+## 0. Pre-flight Self-check
+
+Before touching any file:
+
+1. Run `git status`. If the working tree has many untracked or modified files you did not create:
+   - Those may belong to another agent that has not committed yet.
+   - **Forbidden**: `git stash`, `git clean -fd`, `git checkout .`, `git reset --hard` against those files.
+   - **Forbidden**: drive-by refactors or "cleanup" of those files.
+   - Read `.cursor/agents-active.md`. If another agent is registered as working on overlapping files, **stop and report to the user**.
+2. Confirm the current branch:
+   - On `main` / `master` / a protected branch → create a new branch before any edit.
+   - On a feature branch → verify it is yours, not another agent's.
+3. Register yourself in `.cursor/agents-active.md` (one line, see Appendix A). Remove your line when the task ends, success or failure.
+
+## 1. Physical Isolation (the single most important rule)
+
+Parallel agents **must** use independent git worktrees on independent branches. Never let two agents share a single working directory.
+
+```bash
+# Main checkout at ~/repos/<project>
+git worktree add ../<project>-agent-A feat/agent-A-<topic>
+git worktree add ../<project>-agent-B feat/agent-B-<topic>
+```
+
+Why:
+
+- File-system writes are physically separated; one agent cannot stomp another agent's unsaved buffer.
+- Per-worktree build caches (`node_modules`, `target`, `__pycache__`, IDE indexes) stay independent.
+- Each agent has its own `git status`, so the pre-flight check stays meaningful.
+
+If your tooling provides isolated worktree subagents (e.g. Cursor's `best-of-n-runner`), prefer that over manual setup.
+
+## 2. Split Tasks Along Module Boundaries, Not Feature Boundaries
+
+Identify the repo's natural module axes before assigning parallel tasks. Hard rule: **if two tasks must edit the same file, run them serially**. Parallel assignment is only allowed across **disjoint** file sets.
+
+The concrete axis table (per-service / per-resource / per-feature folder) belongs in the consuming repo's `project/` binding — see Appendix B for the placeholder list.
+
+## 3. Magnet Files (shared files, never write in parallel)
+
+Some files are touched by nearly every feature. Concurrent writes here will conflict and one side will be lost. Maintain an explicit list per repository (Appendix B). Typical magnet files:
+
+- i18n / translation files
+- shared protocol or schema definitions
+- API client / RPC binding entry points
+- routing / navigation / sidebar registry
+- top-level App / root component
+- dependency manifests (`package.json`, `go.mod`, `Cargo.toml`, `requirements.txt`, `pyproject.toml`)
+- build config (`webpack`, `vite`, `tsconfig`, `cargo` workspace)
+- lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `go.sum`, `Cargo.lock`)
+
+Protocol:
+
+1. **Front-load the changes.** Before launching parallel agents, make a single commit that adds every shared field, key, route, or dependency the upcoming parallel work will need. Land it on the base branch.
+2. **Read-only during parallel phase.** Each agent treats magnet files as read-only.
+3. **Serial fallback.** If a magnet-file edit cannot be avoided, serialize: one designated agent owns the change end-to-end.
+
+## 4. Git Behavior Constraints
+
+1. **Rebase-only.** Before merging back into the base branch, run `git rebase <base>`. Resolve conflicts inside your own branch. **Forbidden**: merge commits into the shared base.
+2. **Small commits, push immediately.** Push each chunk to your own remote branch — protects against crashes, makes progress observable, keeps conflict boundaries clean.
+3. **Stay on your branch.**
+   - Forbidden: `git checkout` to another agent's branch or to the base branch.
+   - Forbidden: `git push --force` to any branch you do not own.
+   - Forbidden: `git push --force-with-lease` to base / protected branches.
+   - Forbidden: `git reset --hard` to a remote position behind local (discards commits another agent may have pushed).
+4. **Do not rewrite shared history.** `git rebase -i`, `git commit --amend`, `git filter-branch` may only target commits you created in this session **and** that exist only on your own branch.
+5. **No cross-task stash juggling.** Any `git stash push` must be `git stash pop`-ed within the same task context. Never carry stashes across tasks or across agents.
+6. **Never delete a branch you do not own.** Including local pruning.
+
+## 5. Test Gate (last line of defense)
+
+Every agent runs the full automated test suite before pushing. Multi-agent context adds: **before merging, rebase onto the latest base and re-run the full suite**. This catches "I broke another agent's contract" regressions.
+
+The exact test commands per language stack belong in the consuming repo's `project/` binding, not here.
+
+Cross-feature tests (integration, contract, end-to-end) are **not optional** even if your local change feels isolated — they are the fastest way to detect inter-agent contract breakage.
+
+## 6. Merge Order and Cadence
+
+1. Merge the **infrastructure PR first** (the magnet-file front-load from §3). All feature branches must rebase onto it before continuing.
+2. Merge feature branches **smallest diff first**. Minimizes rebase pain for branches landing later.
+3. After **every** merge to base, run the full test suite on base before merging the next branch.
+4. If two feature branches discover an unavoidable conflict at merge time, **stop the parallel pipeline**. Resolve by serializing: pick one branch to land first, rebase the other on top, re-test.
+
+## 7. Coordination Table (lightweight but mandatory)
+
+The repository contains an `.cursor/agents-active.md` file (template in Appendix A). It is the live registry of who is working on what.
+
+- **Read it before starting any task.** Overlapping target files → stop and report to the user.
+- **Register yourself before editing any file.**
+- **Remove your entry when the task ends**, success or failure.
+- The coordination table is itself a magnet file — update with a single read-then-write atomic edit.
+
+## 8. Mandatory Cleanup Before Launching Parallel Agents
+
+If `git status` on the base branch is not clean (lots of untracked files, scattered modifications), **do not launch parallel agents yet**. First:
+
+1. Group existing changes into logical commits by feature subset.
+2. Land them on the base branch, or on a dedicated `wip/staging` branch with a clear owner.
+3. Confirm `git status` is clean.
+4. Only then create worktrees for parallel agents.
+
+Skipping this guarantees that the first thing parallel agents do is stash or overwrite each other's pre-existing work.
+
+## 9. Pre-merge Checklist
+
+- [ ] Work performed in an independent worktree on an independent branch
+- [ ] No magnet files modified, or if so, change was coordinated with all other active agents
+- [ ] `git rebase <base>` ran cleanly; no merge commits introduced into the shared base
+- [ ] Full test suite passes on the rebased branch
+- [ ] `git status` inside the worktree is clean; no other agent's uncommitted files swept into this commit
+- [ ] Agent's entry in `.cursor/agents-active.md` removed
+- [ ] No `git push --force` to any branch the agent does not own
+- [ ] No history rewriting on shared commits
+
+---
+
+## Appendix A. `.cursor/agents-active.md` template
+
+Save verbatim at the repository root.
+
+```markdown
+# Active Agents
+
+> Coordination table for parallel agents / sessions.
+> Required reading before any task. Register yourself before editing
+> any file. Remove your entry when the task ends, regardless of outcome.
+
+## Currently active
+
+<!--
+Format:
+- agent-<short-id> | <branch-name> | <files-or-dirs> | <ISO8601 timestamp>
+
+Example:
+- agent-A1 | feat/payments-webhook | src/api/payments/, src/lib/stripe.ts | 2026-05-10T17:10+08:00
+-->
+
+(idle)
+
+## Magnet files
+
+The following files may be written by **at most one agent at a time**.
+If you need to edit one, confirm above that no other agent is touching it.
+
+<!-- list maintained in this repo's project/ binding -->
+```
+
+## Appendix B. Project-side bindings
+
+The following values are **not** part of this rule — they belong in the consuming repo's `.cursor/rules/project/<name>-monorepo.mdc`:
+
+- module-axis table (which boundary supports parallel splits in this repo)
+- magnet-file list (concrete paths in this repo)
+- test commands per stack (`npm test`, `pytest`, `go test ./...`, `cargo test --workspace`, ...)
+
+If your repo lacks the binding file, copy `examples/project-evox/evox-monorepo.md` and replace EvoX values.
+
+## Appendix C. Failure modes this rule prevents
+
+| Failure | Caught by |
+|---|---|
+| Agent B `git stash`-es agent A's uncommitted files | §0, §4 |
+| Two agents both edit the same i18n / config file | §2, §3 |
+| Agent A force-pushes over agent B's commits | §4 |
+| Agent A's change breaks a contract agent B depends on | §5 |
+| Merge commits accumulate, rebase becomes impossible | §4, §6 |
+| Lockfile gets corrupted by parallel installs | §1 |
+| Pre-existing scattered work gets buried in a new branch | §0, §8 |
+| Nobody knows who is working on what | §7 |
+
+## See Also
+
+- `multi-worktree.mdc` — pre-flight scan + HANDOFF claim mechanism (companion file)
+- `../common/decision-hygiene.mdc` — pre-flight scan results are the canonical source of evidence anchors

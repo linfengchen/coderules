@@ -90,6 +90,63 @@ The hard cap lives in `clean-code-core.mdc#structural-constraints` (500 lines). 
 - During feature development, if you estimate > 300 lines, plan the split up front.
 - During code review, watch single-file size; any change crossing 500 lines requires a split plan.
 
+## Common Refactoring Moves
+
+Beyond barrel-split, two moves recur often enough to be worth naming:
+
+### Extract Service Layer (when business logic leaks into the handler)
+
+Trigger: a route handler / CLI entry / job runner contains validation + DB writes + side-effects all inline. Move the business logic into a service class that takes its dependencies via constructor; keep the handler to "parse input → call service → format output".
+
+```typescript
+// BEFORE — handler does everything
+app.post('/api/tasks', async (req, res) => {
+	if (!req.body.title) return res.status(422).json({ error: 'VALIDATION' });
+	const task = await db.tasks.create({ ...req.body, status: 'pending' });
+	await notifyAssignee(task);
+	res.status(201).json(task);
+});
+
+// AFTER
+class TaskService {
+	constructor(private repo: TaskRepository, private notifier: NotificationService) {}
+	async create(input: CreateTaskInput): Promise<Task> {
+		const task = await this.repo.create({ ...input, status: 'pending' });
+		await this.notifier.notifyAssignee(task);
+		return task;
+	}
+}
+
+app.post('/api/tasks', async (req, res) => {
+	const task = await taskService.create(req.body); // schema-validate at the boundary, see error-handling.mdc#3
+	res.status(201).json(task);
+});
+```
+
+### Conditional → Polymorphism (when a `switch (type)` keeps growing)
+
+Trigger: a `switch` / `if-else` chain on a discriminator field has ≥ 3 branches and each branch is non-trivial. Replace with a strategy table indexed by the discriminator.
+
+```typescript
+// BEFORE
+function calculatePrice(order: Order): number {
+	if (order.type === 'standard') return order.subtotal * 1.0;
+	if (order.type === 'premium') return order.subtotal * 0.9;
+	if (order.type === 'vip') return order.subtotal * 0.8;
+	throw new Error(`unknown order type: ${order.type satisfies never}`);
+}
+
+// AFTER
+const pricing: Record<OrderType, (subtotal: number) => number> = {
+	standard: s => s * 1.0,
+	premium: s => s * 0.9,
+	vip: s => s * 0.8,
+};
+const calculatePrice = (o: Order) => pricing[o.type](o.subtotal);
+```
+
+Don't apply this when there are only 2 branches or when the branches share most of their code — a simple `if/else` is clearer.
+
 ## Test-Coverage Strategy
 
 All Vitest packages have v8 coverage configured (`vitest.config.ts`):

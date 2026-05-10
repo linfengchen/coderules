@@ -12,7 +12,7 @@ Universal patterns for any IM / chat-platform bot integration (Slack, Feishu, Te
 
 Two universal requirements:
 
-- Credentials come from environment variables, never hardcoded. (See `../common/security-secrets.mdc`.)
+- Credentials come from environment variables, never hardcoded. (See `../common/security-guide.mdc`.)
 - Domain / region / OAuth scope is explicit, not inferred from defaults.
 
 ```ts
@@ -159,7 +159,7 @@ True E2E tests need a real bot account; unit tests cover the parsing / routing /
 
 ## See Also
 
-- `../common/security-secrets.mdc` — credential storage; never hardcode app secrets
+- `../common/security-guide.mdc` — credential storage; never hardcode app secrets
 - `../common/error-handling.mdc` — module-prefixed log lines for grep-locating
 - `plugin-architecture.mdc` — most IM bots run as plugins of a host agent
 - Consuming project's `.cursor/rules/project/<platform>-sdk.mdc` — platform-specific URLs, emoji tables, block-type IDs (template: `../examples/project-evox/feishu-sdk.md`)
