@@ -104,7 +104,3 @@ This skill **learns its form, fills its gaps**:
 - Keep `SKILL.md` ≤ ~400 lines (token economics)
 - Keep each reference ≤ ~250 lines
 - Changes must preserve every "Use when" trigger condition in the frontmatter `description`
-
-## License
-
-Same as the repo: [MIT](../LICENSE). Inspiration from MIT-licensed [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills): see [NOTICE](./NOTICE).

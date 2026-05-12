@@ -308,9 +308,3 @@ ln -s ~/.coderules/{common,lang,patterns,examples,aicoding} ~/path/to/your/repo/
 - **Language extensibility** — new languages get their own `lang/<lang>.mdc`; common principles stay in `common/`
 
 Read [`INDEX.md`](./INDEX.md) for the full layer responsibility table and migration history (v1 → v2.5).
-
----
-
-## License
-
-Original code and docs: [MIT](LICENSE). The `aicoding/` skill cites process inspiration from MIT-licensed [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills); formal notice: [`aicoding/NOTICE`](aicoding/NOTICE).
