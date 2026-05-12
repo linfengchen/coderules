@@ -26,7 +26,7 @@ coderules/
 
 | Layer | Responsibility | alwaysApply | Scope |
 |---|---|---|---|
-| **common/** | Language-agnostic principles, decision hygiene, gates, cross-language conventions | mixed (6 always-on / 4 triggered) | Always-on tier injected every prompt |
+| **common/** | Language-agnostic principles, decision hygiene, gates, cross-language conventions | mixed (6 always-on / 5 triggered) | Always-on tier injected every prompt |
 | **lang/** | Per-language syntax, formatter, test framework | ✗ (globs) | Only when editing the corresponding language file |
 | **patterns/** | Architectural patterns (multi-worktree, multi-agent, plugin, IM bot, memory MCP, persona, database) — project-agnostic | ✗ (desc/globs) | Only when the project has the corresponding feature |
 | **examples/** | Reference templates (`.md`, not `.mdc`) — Cursor never loads them | n/a (not loaded) | Documentation only |
@@ -56,6 +56,7 @@ To prevent rule-set bloat from diluting agent attention, keep the **always-on ti
 | `common/imports.mdc` | desc — when adding / reorganizing imports or barrel files |
 | `common/refactoring-guidelines.mdc` | desc — when refactoring / splitting a large file / tightening types |
 | `common/testing-principles.mdc` | globs — `**/test/**`, `**/*.test.*`, `**/*.spec.*` |
+| `common/security-owasp-hardening.mdc` | desc — security review / OWASP / auth-hardening tasks |
 | `lang/*.mdc` | globs per language |
 | `patterns/multi-worktree.mdc` | desc — multi-worktree / parallel session / continue-port-implement on multi-branch repo |
 | `patterns/multi-agent.mdc` | desc — running multiple agents / sessions / `best-of-n` against the same repo |
@@ -77,7 +78,7 @@ When adding a new rule, default to `alwaysApply: false` and prove a triggering n
 
 ---
 
-## common/ (10 files)
+## common/ (11 files)
 
 | File | Responsibility |
 |---|---|
@@ -90,6 +91,7 @@ When adding a new rule, default to `alwaysApply: false` and prove a triggering n
 | `comments-docs.mdc` | Public-API doc / TODO / Deprecation / Stability markers (per Google Style) |
 | `imports.mdc` | Three-segment grouping, alphabetical, anti-patterns (per Google Style) |
 | `security-guide.mdc` | Credentials, log redaction, input trust boundary, injection defense, web operational hardening + framework entry-point cheat sheet |
+| `security-owasp-hardening.mdc` | OWASP Top 10 (2021) walkthrough + framework snippets (pairs with `security-guide.mdc`) |
 | `testing-principles.mdc` | Pyramid, AAA, naming, mock boundaries, coverage philosophy |
 
 ---
@@ -244,7 +246,7 @@ Three real additions plus two salvage merges. Always-on tier unchanged at 6 file
 
 Rejected during v2.5 review (would have bloated trigger surface or duplicated existing rules):
 
-- A standalone `security-owasp-hardening.mdc` — overlapped 60% with `security-guide.mdc`; framework cheat-sheet salvaged into §7
+- `security-owasp-hardening.mdc` remains **desc-triggered** beside `security-guide.mdc` (always-on baseline + optional OWASP pass); do not promote both to always-on
 - A standalone `refactoring-patterns.mdc` — 80% React-specific framework lore; two truly universal moves salvaged into `refactoring-guidelines.mdc`
 - `api-documentation.mdc` / `readme-standards.mdc` — README/changelog templates are not "code rules"; agents don't repeatedly touch them
 - Phantom test-framework files (`*-jest`, `*-mocha`, `pytest`) — never written to disk; INDEX has been corrected
@@ -271,3 +273,4 @@ Note: Cursor decides when to inject rules by file name + frontmatter; the direct
 6. **Pattern + binding pair**: when a project binding grows past ~200 lines, look for the universal pattern hidden inside and lift it to `patterns/`. Keep the binding to values only.
 7. **Token economy**: prefer English for rule bodies (~30% fewer tokens than Chinese for technical content); keep code paths / project nouns as-is.
 8. **examples/ hygiene**: examples are `.md` not `.mdc` so Cursor never loads them. If you add a new example, keep the `.md` extension; if you accidentally use `.mdc`, Cursor will inject it and pollute the prompt budget.
+9. **Path resolution**: References like ``../examples/project-binding/`` from ``patterns/*.mdc`` assume **`examples/` is a sibling of `patterns/`** (per `install.sh` or tarball extract including `examples/`). Omitting `examples/` breaks those links for humans following cross-refs locally.

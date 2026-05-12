@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.
 curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s all ~/path/to/your/repo
 ```
 
-The script downloads a tarball (no `git` needed) into `~/.coderules`, then symlinks the four layers into `<project>/.cursor/rules/`. Idempotent — re-running just refreshes. Set `CODERULES_MODE=git` if you prefer a `git clone` you can `git pull` later.
+The script downloads a tarball (no `git` needed) into `~/.coderules`, then symlinks `common/`, `lang/`, `patterns/`, `aicoding/`, and `examples/` into `<project>/.cursor/rules/`. Idempotent — re-running just refreshes. Set `CODERULES_MODE=git` if you prefer a `git clone` you can `git pull` later.
 
 To uninstall:
 
@@ -59,10 +59,11 @@ mkdir -p .cursor/rules && \
     coderules-main/common \
     coderules-main/lang \
     coderules-main/patterns \
-    coderules-main/aicoding
+    coderules-main/aicoding \
+    coderules-main/examples
 ```
 
-This drops the four layers as **plain files** into `.cursor/rules/`. To update: re-run the same command (will overwrite). Trade-off: every consuming project carries its own copy.
+This drops the layers as **plain files** into `.cursor/rules/`. Include `examples/` so relative links like `../examples/project-binding/*.md` from `patterns/*.mdc` resolve. To update: re-run the same command (will overwrite). Trade-off: every consuming project carries its own copy.
 
 ---
 
@@ -74,9 +75,7 @@ This drops the four layers as **plain files** into `.cursor/rules/`. To update: 
 
 1. Download tarball (or `git clone` / `git pull` if `CODERULES_MODE=git`) into `$CODERULES_HOME` (default `~/.coderules`)
 2. `mkdir -p <project>/.cursor/rules`
-3. `ln -s` for each of `common/`, `lang/`, `patterns/`, `aicoding/`
-
-Symlinks (not copies) by design — refresh the cached tarball / pull once and every consuming project picks up the update. `examples/*.md` is never loaded by Cursor (extension is `.md`, not `.mdc`).
+3. `ln -s` for each of `common/`, `lang/`, `patterns/`, `aicoding/`, and `examples/` (templates only; `.md` is never auto-loaded as a rule)
 
 ### Cursor — Global (all projects on this machine)
 
@@ -166,7 +165,7 @@ cd ~/path/to/your/repo
 
 # 1) Total rule files reachable
 find -L .cursor/rules -name '*.mdc' | wc -l
-# Expected: 23   (10 common + 6 lang + 7 patterns)
+# Expected: 24   (11 common + 6 lang + 7 patterns)
 
 # 2) Always-on tier (alwaysApply: true) — should be ≤ 6 from coderules
 find -L .cursor/rules -name '*.mdc' | xargs grep -l 'alwaysApply: true' | xargs -n1 basename | sort
@@ -179,7 +178,7 @@ find -L .cursor/rules -name '*.mdc' | xargs grep -l 'alwaysApply: true' | xargs 
 #   security-guide.mdc
 
 # 3) Are rules being picked up by Cursor?
-# In Cursor: open Settings → Rules → confirm the four layers appear (common, lang, patterns, aicoding)
+# In Cursor: open Settings → Rules → confirm layers appear (common, lang, patterns, examples, aicoding)
 ```
 
 Then ask Cursor a small task and check that:
@@ -202,6 +201,7 @@ your-repo/
         ├── common/      → ~/.coderules/common      (symlink)
         ├── lang/        → ~/.coderules/lang        (symlink)
         ├── patterns/    → ~/.coderules/patterns    (symlink)
+        ├── examples/    → ~/.coderules/examples    (symlink; binding templates `.md`)
         └── aicoding/    → ~/.coderules/aicoding    (symlink)
 ```
 
@@ -274,7 +274,7 @@ curl -fsSL https://codeload.github.com/linfengchen/coderules/tar.gz/refs/heads/m
 
 # Transfer + extract:
 mkdir -p ~/.coderules && tar -xz -C ~/.coderules --strip-components=1 -f coderules.tar.gz
-ln -s ~/.coderules/{common,lang,patterns,aicoding} ~/path/to/your/repo/.cursor/rules/
+ln -s ~/.coderules/{common,lang,patterns,examples,aicoding} ~/path/to/your/repo/.cursor/rules/
 ```
 
 ---
@@ -293,4 +293,4 @@ Read [`INDEX.md`](./INDEX.md) for the full layer responsibility table and migrat
 
 ## License
 
-MIT for original content. The `aicoding/` skill draws structure from the MIT-licensed [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills).
+Original code and docs: [MIT](LICENSE). The `aicoding/` skill cites process inspiration from MIT-licensed [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills); formal notice: [`aicoding/NOTICE`](aicoding/NOTICE).

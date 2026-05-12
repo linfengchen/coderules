@@ -2,26 +2,6 @@
 # coderules installer — fetch once, link into your agent of choice.
 # Default uses curl + tar (no git required); --git opts into git clone for pull-based updates.
 #
-# Usage (after fetching):
-#   ./install.sh <target> [project_dir]
-#
-# One-liner (without fetching first):
-#   curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s <target> [project_dir]
-#
-# Targets:
-#   cursor [dir]      Link rules + skill into <dir>/.cursor/rules/  (default: $PWD)
-#   claude            Link aicoding skill into ~/.claude/skills/    (rules: see note below)
-#   global            Generate a paste-ready blob for Cursor's User Rules (global, all projects)
-#   all [dir]         Cursor (project) + Claude (skill)
-#   uninstall [dir]   Remove all symlinks created by this installer
-#   help              Show this message
-#
-# Env overrides:
-#   CODERULES_HOME    Where to keep the rule pack    (default: ~/.coderules)
-#   CODERULES_REPO    Source repo (owner/repo form)  (default: linfengchen/coderules)
-#   CODERULES_REF     Branch / tag / commit to fetch (default: main)
-#   CODERULES_MODE    "tarball" (default) | "git"    — git enables `git pull` updates
-
 set -euo pipefail
 
 CODERULES_REPO="${CODERULES_REPO:-linfengchen/coderules}"
@@ -29,7 +9,7 @@ CODERULES_HOME="${CODERULES_HOME:-$HOME/.coderules}"
 CODERULES_REF="${CODERULES_REF:-main}"
 CODERULES_MODE="${CODERULES_MODE:-tarball}"
 
-LAYERS=(common lang patterns aicoding)
+LAYERS=(common lang patterns aicoding examples)
 SKILL_DIR="aicoding"
 
 red()    { printf '\033[31m%s\033[0m\n' "$*"; }

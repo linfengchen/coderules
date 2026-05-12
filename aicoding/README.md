@@ -107,4 +107,4 @@ This skill **learns its form, fills its gaps**:
 
 ## License
 
-Used under the repo's license. This skill draws extensively from MIT-licensed `addyosmani/agent-skills`.
+Same as the repo: [MIT](../LICENSE). Inspiration from MIT-licensed [`addyosmani/agent-skills`](https://github.com/addyosmani/agent-skills): see [NOTICE](./NOTICE).
