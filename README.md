@@ -34,18 +34,19 @@ This repo has **no hard-coded GitHub owner** in the docs or installer: point at 
 ```bash
 # Set once per shell to the GitHub path of the repo you trust (fork or upstream).
 export CODERULES_REPO=OWNER/coderules
+export CODERULES_REF=main
 
 # Cursor — fetch rules + skill into the current project
-curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s cursor
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}/install.sh" | bash -s cursor
 
 # Cursor (global, all projects on this machine — pastes into User Rules)
-curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s global
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}/install.sh" | bash -s global
 
 # Claude Code — install aicoding skill globally
-curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s claude
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}/install.sh" | bash -s claude
 
 # Both project-level (Cursor rules + Claude skill)
-curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s all ~/path/to/your/repo
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}/install.sh" | bash -s all ~/path/to/your/repo
 ```
 
 **Clone instead of curl:** after `git clone … && cd coderules`, run `./install.sh cursor` — no `CODERULES_REPO` env needed unless `origin` is not GitHub HTTPS/SSH.
@@ -98,7 +99,8 @@ Cursor stores **User Rules** (Settings → Rules for AI) as a single text blob a
 
 ```bash
 export CODERULES_REPO=OWNER/coderules
-curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s global
+export CODERULES_REF=main
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}/install.sh" | bash -s global
 ```
 
 This:
@@ -287,9 +289,10 @@ Manually fetch the tarball anywhere with internet, scp into the target machine, 
 ```bash
 # On a machine with internet:
 export CODERULES_REPO=OWNER/coderules
-curl -fsSL "https://codeload.github.com/${CODERULES_REPO}/tar.gz/refs/heads/main" -o coderules.tar.gz
+export CODERULES_REF=main
+curl -fsSL "https://codeload.github.com/${CODERULES_REPO}/tar.gz/refs/heads/${CODERULES_REF}" -o coderules.tar.gz
 
-# Transfer + extract (top-level dir inside the tarball is usually coderules-main if repo name is "coderules"):
+# Transfer + extract (top-level dir inside the tarball is {repo-name}-{ref}, e.g. coderules-main):
 mkdir -p ~/.coderules && tar -xz -C ~/.coderules --strip-components=1 -f coderules.tar.gz
 ln -s ~/.coderules/{common,lang,patterns,examples,aicoding} ~/path/to/your/repo/.cursor/rules/
 ```

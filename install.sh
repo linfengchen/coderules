@@ -265,7 +265,8 @@ Usage:
 
 One-liner (no clone needed):
   export CODERULES_REPO=OWNER/coderules
-  curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s <target> [project_dir]
+  export CODERULES_REF=main
+  curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}/install.sh" | bash -s <target> [project_dir]
 
 Targets:
   cursor [dir]      Link rules + skill into <dir>/.cursor/rules/  (default: $PWD)
