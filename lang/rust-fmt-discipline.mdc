@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Rust fmt Discipline
 
-This repo treats `../common/quality-gates.mdc` as the **source of truth** for the complete commit/push gate (fmt → clippy → tests → quality-gate → verify). This rule **complements** it: it focuses on the fmt step alone, explaining why it must be fixed locally and how to write code that rustfmt won't reformat — saving an extra `cargo fmt` round and an isolated style commit.
+This repo treats `../common/engineering-lifecycle.mdc` as the **source of truth** for the complete commit/push gate (fmt → clippy → tests → quality-gate → verify). This rule **complements** it: it focuses on the fmt step alone, explaining why it must be fixed locally and how to write code that rustfmt won't reformat — saving an extra `cargo fmt` round and an isolated style commit.
 
 ## Why fmt Must Be Fixed Locally, Not by CI / pre-push
 
@@ -20,12 +20,12 @@ In short: **the agent is the only reliable fmt safety net** and must run fmt act
 
 ## Required: One-Command Pre-Commit
 
-Walk the full gate per `../common/quality-gates.mdc`; the fmt step concretely:
+Walk the full gate per `../common/engineering-lifecycle.mdc`; the fmt step concretely:
 
 ```bash
 cargo fmt --all -- --check  # dry-run to see what would change
 cargo fmt --all             # apply if there's a diff
-git add <files>             # restage after apply (per quality-gates §3)
+git add <files>             # restage after apply (per engineering-lifecycle §B3 hooks)
 ```
 
 Note: `--all`, not `-p <crate>`. **Don't run only the current crate** — workspaces have trait re-exports / `pub use` chains, and rustfmt's witness-type judgments depend on sibling crates.
@@ -149,7 +149,7 @@ Confirm both versions match. If they don't, fix the toolchain first; don't blind
 
 ## Coordination With Other Rules
 
-- `../common/quality-gates.mdc`: **source of truth**. It owns the full 5-step gate; this file is the write-side complement to its fmt section (write rustfmt-friendly code + counter-example library).
+- `../common/engineering-lifecycle.mdc`: **source of truth**. It owns the full 5-step gate; this file is the write-side complement to its fmt section (write rustfmt-friendly code + counter-example library).
 - `clean-code-rust.mdc#naming`: "Follow `cargo fmt` defaults; do not fight the formatter" — this rule promotes that style suggestion to a hard-enforced + counter-example-backed rule.
-- `../patterns/multi-worktree.mdc#4-completion-handoff`: every worktree push must walk the full `../common/quality-gates.mdc` gate.
+- `../patterns/multi-worktree.mdc#4-completion-handoff`: every worktree push must walk the full `../common/engineering-lifecycle.mdc` gate.
 - Consuming project's memory-MCP binding (template: `../examples/project-binding/memory-mcp-sample.md`): when fmt passes locally but is red on master CI, record an outcome with signals `ci_red` / `rust_fmt_skipped` / `toolchain_drift` so future recall hits.

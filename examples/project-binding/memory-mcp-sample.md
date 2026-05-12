@@ -38,5 +38,5 @@ Example domain rows (replace with yours):
 ## See also
 
 - `../patterns/memory-mcp-discipline.mdc`
-- `../common/decision-hygiene.mdc` — after substantive decisions, record signals like `decision_decomposition` / `temporal_layering` / `glue_layer` if your MCP supports them
+- `../common/engineering-lifecycle.mdc` — after substantive decisions, record signals like `decision_decomposition` / `temporal_layering` / `glue_layer` if your MCP supports them
 - `monorepo-trunk-sample.md` — where E2E commands for your repo are documented

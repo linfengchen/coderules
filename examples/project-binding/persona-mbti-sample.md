@@ -40,5 +40,5 @@ Constraints from `persona-architecture.mdc`:
 ## See also
 
 - `../patterns/persona-architecture.mdc`
-- `../common/decision-hygiene.mdc` — decomposition before expanding axes
+- `../common/engineering-lifecycle.mdc` §A2 — decomposition before expanding axes
 - `im-feishu-sample.md` — if persona affects IM streaming send path

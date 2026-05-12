@@ -152,5 +152,6 @@ Symptom fixes are recurrence-prone. Root-cause fixes plus a regression test prev
 
 - `architecture.mdc#strict-type-boundaries` — public-API type strictness
 - `security-guide.mdc#input-trust-boundaries` — security-flavored boundary rules
+- `../examples/project-binding/logging-facade-sample.md` — façade pattern so `[module-name]` is enforced consistently (copy → `project/` as `.mdc`)
 - `../lang/clean-code-typescript.mdc#error-handling` — TS-specific syntax
 - `../lang/clean-code-rust.mdc#error-handling` — Rust-specific syntax (`thiserror` / `?` / `let-else`)

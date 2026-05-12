@@ -184,4 +184,4 @@ If your repo lacks the binding file, start from `../examples/project-binding/mon
 ## See Also
 
 - `multi-worktree.mdc` — pre-flight scan + HANDOFF claim mechanism (companion file)
-- `../common/decision-hygiene.mdc` — pre-flight scan results are the canonical source of evidence anchors
+- `../common/engineering-lifecycle.mdc` — pre-flight scan results are the canonical source of evidence anchors

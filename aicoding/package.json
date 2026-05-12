@@ -1,0 +1,23 @@
+{
+  "name": "aicoding-skill",
+  "version": "0.1.0",
+  "description": "Four-gate vibe-coding skill (DECIDE → BUILD → VERIFY → POLISH) for Claude Code and OpenClaw; ships with coderules.",
+  "license": "MIT",
+  "homepage": "https://github.com/Evomap/coderules/tree/main/aicoding",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evomap/coderules.git",
+    "directory": "aicoding"
+  },
+  "bugs": {
+    "url": "https://github.com/Evomap/coderules/issues"
+  },
+  "keywords": [
+    "agent-skill",
+    "aicoding",
+    "claude-code",
+    "openclaw",
+    "clawhub",
+    "coderules"
+  ]
+}

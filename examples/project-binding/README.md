@@ -22,5 +22,6 @@ Cursor only auto-loads `*.mdc` under `.cursor/rules/`. These files use `.md` so 
 | `im-bot-integration.mdc` | `im-feishu-sample.md` (Lark/Feishu illustrates one vendor; substitute your platform) |
 | `memory-mcp-discipline.mdc` | `memory-mcp-sample.md` |
 | `persona-architecture.mdc` | `persona-mbti-sample.md` |
+| _(error-handling facade)_ | `logging-facade-sample.md` (bind `common/error-handling.mdc` `[module-name]` convention to your logger) |
 
 The Feishu sample is **one concrete IM integration**; Discord/Slack bindings follow the same shape with different URLs and emoji vocabularies per `im-bot-integration.mdc`.

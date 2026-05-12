@@ -47,4 +47,4 @@ List files that **at most one** parallel agent may edit (see `patterns/multi-age
 
 - `../patterns/multi-worktree.mdc`
 - `../patterns/multi-agent.mdc`
-- `../common/quality-gates.mdc`
+- `../common/engineering-lifecycle.mdc`

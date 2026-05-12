@@ -44,7 +44,7 @@ Any gate not passing → **Stop the line**. No advancing to the next gate.
 
 ## Gate 1 — DECIDE (Decision Hygiene)
 
-Mandatory before writing code. Borrowed from local `decision-hygiene` rule's "claim decomposition / evidence anchors / explicit retraction / temporal layering / commitment boundary".
+Mandatory before writing code. Borrowed from local `engineering-lifecycle` rule (Decision §A — claim decomposition / evidence anchors / explicit retraction / temporal layering / commitment boundary).
 
 ### 1.1 Claim Decomposition
 
@@ -196,7 +196,7 @@ Self-check each change in this order:
 4. **Security**: user input validated? secrets out of source? external data treated as untrusted?
 5. **Performance**: N+1? unbounded loops? sync that should be async? unnecessary frontend re-renders?
 
-### 3.2 End-to-End Gate (from local `quality-gates`)
+### 3.2 End-to-End Gate (from local `engineering-lifecycle`, phase B)
 
 Before claiming "done", **mandatory**:
 
@@ -375,7 +375,7 @@ Any unchecked → not done; return to the corresponding gate.
 - [`references/code-craft.md`](./references/code-craft.md) — full Gate 2 (naming / comments / error handling / testing / language details)
 - [`references/design-craft.md`](./references/design-craft.md) — full Gate 4 (design system / a11y / micro-interactions / anti-AI patterns deep dive)
 - This repo's three universal layers are the **callee**; this skill is the **caller**:
-  - `../common/clean-code-core.mdc` / `architecture.mdc` / `decision-hygiene.mdc` / `quality-gates.mdc` / `comments-docs.mdc` / `imports.mdc` / `security-guide.mdc` / `testing-principles.mdc` / `error-handling.mdc`
+  - `../common/clean-code-core.mdc` / `architecture.mdc` / `engineering-lifecycle.mdc` / `comments-docs.mdc` / `imports.mdc` / `security-guide.mdc` / `testing-principles.mdc` / `error-handling.mdc`
   - `../lang/clean-code-typescript.mdc` / `clean-code-rust.mdc` / `rust-fmt-discipline.mdc` / `typescript-testing.mdc`
   - `../patterns/multi-worktree.mdc` / `plugin-architecture.mdc` / `im-bot-integration.mdc` / `memory-mcp-discipline.mdc` / `persona-architecture.mdc` (architectural patterns; trigger when relevant)
   - The consuming project's own `.cursor/rules/project/<name>.mdc` (project-specific bindings; written per-project, see `../examples/project-binding/` for templates)

@@ -4,7 +4,7 @@ Main SKILL: [`../SKILL.md`](../SKILL.md). This file expands Gate 1 "DECIDE".
 
 > This is the core differentiator from addyosmani/agent-skills. The biggest root cause of "vibe coding" failure is not writing the wrong code — it's **writing very fast in the wrong direction**. This gate exists to prevent that.
 
-Reference: this repo's `../../common/decision-hygiene.mdc` (verbatim source).
+Reference: canonical compact checklist in `../../common/engineering-lifecycle.mdc` (Decision phase §A). **This reference file** keeps worked examples + tables for agents that load Gate 1 on demand.
 
 ---
 

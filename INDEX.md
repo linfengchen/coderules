@@ -26,7 +26,7 @@ coderules/
 
 | Layer | Responsibility | alwaysApply | Scope |
 |---|---|---|---|
-| **common/** | Language-agnostic principles, decision hygiene, gates, cross-language conventions | mixed (6 always-on / 5 triggered) | Always-on tier injected every prompt |
+| **common/** | Language-agnostic principles, engineering lifecycle gates, cross-language conventions | mixed (5 always-on / 5 triggered) | Always-on tier injected every prompt |
 | **lang/** | Per-language syntax, formatter, test framework | ✗ (globs) | Only when editing the corresponding language file |
 | **patterns/** | Architectural patterns (multi-worktree, multi-agent, plugin, IM bot, memory MCP, persona, database) — project-agnostic | ✗ (desc/globs) | Only when the project has the corresponding feature |
 | **examples/** | Reference templates (`.md`, not `.mdc`) — Cursor never loads them | n/a (not loaded) | Documentation only |
@@ -35,17 +35,16 @@ coderules/
 
 ## Context Budget (always-on tier)
 
-To prevent rule-set bloat from diluting agent attention, keep the **always-on tier ≤ 6 files / ~7K tokens** within `coderules/`. Everything else loads on demand via `globs` or `description` triggers. (A consuming project may add ≤ 1 always-on `project/` trunk for its own layout / runtime conventions, capped at total ≤ 7.)
+To prevent rule-set bloat from diluting agent attention, keep the **always-on tier ≤ 6 files / ~7K tokens** within `coderules/` (this stack targets **five** core always-on `.mdc` files in `common/`, freeing headroom vs the prior six). Everything else loads on demand via `globs` or `description` triggers. (A consuming project may add ≤ 1 always-on `project/` trunk for its own layout / runtime conventions, capped at total ≤ 7.)
 
-### Always-on (6 files, ~7K tokens)
+### Always-on (5 files in `common/`, tightened)
 
 | File | Why always-on |
 |---|---|
 | `common/clean-code-core.mdc` | Naming / sizing / nesting limits — fires on every code change |
 | `common/architecture.mdc` | Interface single definition, wiring — fires on every cross-module change |
-| `common/decision-hygiene.mdc` | Claim decomposition / anchors — needed up-front to prevent reasoning drift |
+| `common/engineering-lifecycle.mdc` | **Merged** decision hygiene (§A) + post-change / E2E / hooks gates (§B) — replaces separate decision + quality files |
 | `common/error-handling.mdc` | Error discipline — every code change touches control flow |
-| `common/quality-gates.mdc` | "Are you done?" gate — fires after every change |
 | `common/security-guide.mdc` | Security cannot be opt-in; cost of missing is too high |
 
 ### Triggered (loaded only when needed)
@@ -78,16 +77,15 @@ When adding a new rule, default to `alwaysApply: false` and prove a triggering n
 
 ---
 
-## common/ (11 files)
+## common/ (10 files)
 
 | File | Responsibility |
 |---|---|
 | `clean-code-core.mdc` | KISS / YAGNI / SRP / DRY; 500/120/3 limits; naming / comment red lines |
 | `architecture.mdc` | Single interface definition, barrel / wiring completeness, single cross-process glue |
-| `decision-hygiene.mdc` | **Exclusive**: claim decomposition / evidence anchors / explicit retraction / temporal layering / commitment boundary |
+| `engineering-lifecycle.mdc` | **Always-on**: Decision phase (§A) + implementation verification / E2E / hooks (§B); commands stay in `lang/` + project bindings |
 | `error-handling.mdc` | Universal error discipline (no swallowed errors, validate at boundaries, no escape hatches across public APIs) |
 | `refactoring-guidelines.mdc` | barrel + delegation split, gradual `any` tightening, large-file prevention, common refactor moves (extract service / replace conditional with strategy) |
-| `quality-gates.mdc` | Completion Standard + Post-Change Review & E2E Gate + Git Hooks |
 | `comments-docs.mdc` | Public-API doc / TODO / Deprecation / Stability markers (per Google Style) |
 | `imports.mdc` | Three-segment grouping, alphabetical, anti-patterns (per Google Style) |
 | `security-guide.mdc` | Credentials, log redaction, input trust boundary, injection defense, web operational hardening + framework entry-point cheat sheet |
@@ -155,7 +153,12 @@ To deploy: copy into your repo's `.cursor/rules/project/`, rename `.md` → `.md
 
 ## Migration Map
 
-### v1 → v2 (Initial Restructure)
+### v2.5+ — engineering lifecycle compaction
+
+| Change | Detail |
+|---|---|
+| Merge | `common/decision-hygiene.mdc` + `common/quality-gates.mdc` → **`common/engineering-lifecycle.mdc`** (always-on §A/B); concrete build/type commands live in **`lang/*.mdc`** + project bindings |
+| Token goal | Fewer duplicated intros; typical always-on **`common/`** tier is **five** `.mdc` files |
 
 | v1 path (old) | v2 path | Note |
 |---|---|---|

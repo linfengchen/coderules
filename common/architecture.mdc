@@ -17,7 +17,7 @@ The same principle applies to IPC / protocol channels:
 
 - The repo's canonical **MCP** glue is **one** stdio JSON-RPC server subprocess (exact crate path differs per repo). Any new requirement that needs "bolt-on interpreted runtime / hot reload" **must reuse that MCP subprocess pattern**. Don't build a second IPC / socket / private RPC channel.
 - IM channel adapters live behind **one unified layer** (facade / trait / package). Don't reach past it to wire a new chat platform directly into trunk code.
-- If you believe the existing glue layer is insufficient, list the concrete shortcomings per `decision-hygiene.mdc#2-evidence-anchors`, explain why extending it is worse than building a new one, and let the user decide.
+- If you believe the existing glue layer is insufficient, list the concrete shortcomings per `engineering-lifecycle.mdc` (Decision phase §A2 Evidence anchors), explain why extending it is worse than building a new one, and let the user decide.
 
 ## No Swallowed Errors
 

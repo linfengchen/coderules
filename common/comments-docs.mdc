@@ -136,7 +136,7 @@ Cross-module exported symbols must declare stability explicitly so they aren't l
 | `@internal` / `Stability: internal` | no commitment; external use is at your own risk | none |
 | `@deprecated` | reverse commitment: scheduled for removal | see §5 |
 
-Details live in `decision-hygiene.mdc#6-commitment-boundary-management`.
+Details live in `engineering-lifecycle.mdc` §A6 commitment boundary.
 
 ## 5. Deprecation Format (Required)
 
@@ -196,5 +196,5 @@ Without the note, users / contributors will assume it's a public contract — an
 ## Coordination With Other Rules
 
 - `clean-code-core.mdc#naming--style`: names convey "why"; this file is the comment-side extension
-- `decision-hygiene.mdc#6-commitment-boundary-management`: stability markers are its engineering implementation
+- `engineering-lifecycle.mdc` §A6: stability markers are its engineering implementation
 - `../lang/<language>.mdc`: the per-language doc-comment tooling (JSDoc / rustdoc / docstring / godoc)

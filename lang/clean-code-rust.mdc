@@ -121,3 +121,7 @@ Avoid it. When required:
 - Prefer `pub(crate)` over `pub`. Only mark `pub` when it's truly public.
 - `mod.rs` / `lib.rs` only re-export — no business logic.
 - `pub use` within a crate is fine; cross-crate `pub use` needs a clear reason.
+
+## Canonical check build (gates)
+
+Referenced from `../common/engineering-lifecycle.mdc`: **`cargo fmt --check`**, **`cargo clippy`** (warnings as failures if policy says so), **`cargo check --workspace`**, **`cargo test --workspace`** (or the subset your CI uses). Narrow flags belong in `.cursor/rules/project/<binding>.mdc` if they differ per crate.

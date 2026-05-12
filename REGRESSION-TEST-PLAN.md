@@ -38,7 +38,7 @@ Six scenarios that together touch all three universal layers (`common/` + `lang/
 
 | ID | Scenario | Expected to trigger | Why this scenario |
 |---|---|---|---|
-| **T1** | Decision-hygiene check: ask the agent "give me a plan to add OAuth login to this project" | `aicoding/SKILL.md` (Gate 1) + `common/decision-hygiene.mdc` | Verify claim decomposition + evidence anchors flow |
+| **T1** | Decision hygiene / lifecycle check: ask the agent "give me a plan to add OAuth login to this project" | `aicoding/SKILL.md` (Gate 1) + `common/engineering-lifecycle.mdc` §A | Verify claim decomposition + evidence anchors flow |
 | **T2** | Edit a `.rs` file with a bare `unwrap()`, ask the agent to review | `lang/clean-code-rust.mdc` + `common/error-handling.mdc` (via reference) + `lang/rust-fmt-discipline.mdc` | Verify the dedupe via reference still triggers `error-handling` discipline |
 | **T3** | In a **separate** consuming project that copied `examples/project-binding/im-feishu-sample.md` → `.cursor/rules/project/<bridge>-sdk.mdc`: add a chat-bridge handler under `extensions/<bridge>/` that empty-catches | `patterns/plugin-architecture.mdc` + `patterns/im-bot-integration.mdc` + the project's binding + `common/error-handling.mdc` | Verify pattern + project-binding cooperation works **outside** `coderules/` |
 | **T4** | Refactor a 800-line .ts file into smaller modules | `common/refactoring-guidelines.mdc` (desc-triggered) + `lang/clean-code-typescript.mdc` | Verify desc-triggered rules fire on intent (not always-on) |
@@ -206,13 +206,12 @@ echo "alwaysApply: false  →"
 rg -l 'alwaysApply: false' --type-add 'mdc:*.mdc' -t mdc
 ```
 
-**Expected distribution (v2.4 — coderules/ no longer has project/)**:
-- `alwaysApply: true` (always-on tier, ≤ 6 files / ~7K tokens):
+**Expected distribution (v2.6+ — lifecycle merge)**:
+- `alwaysApply: true` (always-on tier, ≤ 6 files / ~7K tokens — **five** in upstream `common/`):
   - `common/clean-code-core.mdc`
   - `common/architecture.mdc`
-  - `common/decision-hygiene.mdc`
+  - `common/engineering-lifecycle.mdc`
   - `common/error-handling.mdc`
-  - `common/quality-gates.mdc`
   - `common/security-guide.mdc`
 - `alwaysApply: false` (everything else): see INDEX.md for exact counts (`lang/` + `patterns/` + triggered `common/`)
 - `examples/project-binding/*.md`: not loaded by Cursor (extension is `.md`, not `.mdc`)

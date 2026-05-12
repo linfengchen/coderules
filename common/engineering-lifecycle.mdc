@@ -1,0 +1,73 @@
+---
+description: Unified engineering lifecycle — decision hygiene before plans, quality gates before "done". Replaces standalone decision-phase + post-implementation files to save always-on tokens.
+alwaysApply: true
+---
+
+# Engineering Lifecycle
+
+One lifecycle, two checkpoints: **(A) before proposing a plan** and **(B) before marking work done.** Skipping either is non-compliant.
+
+## A1. Claim decomposition
+
+On a **conclusive** user directive ("don't do X" / "do Y instead"), before todos or architecture: split the proposition into implementation layers (3–5 typical), **verdict each independently**, expose the decomposition in the reply. **No plan from the headline alone.**
+
+## A2. Evidence anchors
+
+Before "X is insufficient" / "we should migrate to Y" / architecture pitches: cite **≥1 concrete anchor** (`Read`/`Grep`/`rg`), e.g. `path/to/file:L` or parity doc row — **minimum hard floor**. Reject vibes-only rationales (`"sounds bad"`, `"might later"`, `"I remember"`).
+
+## A3. Explicit retraction
+
+If new evidence contradicts an earlier suggestion: **`Retract <keyword>: <why>. <replacement>.`** No silent edits or fuzzy repositioning.
+
+## A4. Single glue layer
+
+One canonical integration surface per channel class (IPC, MCP subprocess, unified chat façade, …). Forbidden: duplicate parallel stacks for the same concern; bypass façade to bolt vendors into core; new host language/runtime **for glue only** without listing gaps + user sign-off (`A2`). See also `architecture.mdc`.
+
+## A5. Temporal layering (YAGNI in time)
+
+**Now:** minimum complexity for current phase; action items scoped to shipped demand. **Later:** placeholder + **one-line trigger** only — do **not** ship negotiation matrices, ABI version grids, compatibility shims, or speculative multi-SDK tooling **prematurely**. `"Maybe later"` ⇒ placeholder + trigger, **not** build.
+
+Cross-reference: `clean-code-core.mdc` temporal YAGNI.
+
+## A6. Commitment boundary
+
+Symbols/docs that resemble public contracts need explicit **`@stable` / `@experimental` / `@internal`** (or README equivalent). Bindings/concrete ABI examples live in the consuming project's `project/` rules, not this pack.
+
+### Decision checklist (before direction reply)
+
+Decomposed? Anchors cited? Retraction if contradictory? Glue-layer violation? Temporal split clean? Commitment stated for façade-like APIs? Any unchecked → redo.
+
+---
+
+## B1. Completion standard
+
+**Done** means exercised behavior, not mere green lint or skimmed diff. Changes that touch integrations require **one real end-to-end path** traces and artifacts inspected (logs, rows, writes). Project kill/cache/E2E commands: consuming `project/` binding (e.g. `../examples/project-binding/monorepo-trunk-sample.md`).
+
+## B2. Post-change review & E2E
+
+1. Walk the diff; no orphaned files/stray typos.
+2. **Verify build fidelity with the project's toolchain** — run **`../lang/<your-language>.mdc`** canonical typecheck/build (if that language applies) plus any commands declared in **`project/`** bindings. Treat external API signatures by **reading sources**, not guessing.
+3. E2E: clean stale runtime, restart smoke, execute one representative flow; re-run if review or test fails before claiming done.
+
+## B3. Git-hook discipline
+
+| Hook        | Typical scope      | Blocks on failure      |
+|-------------|--------------------|------------------------|
+| pre-commit | format + fast check | dirty tree / types      |
+| pre-push    | lint + tests + build | regressions |
+
+**Red lines:** no `--no-verify` without **written reason** in commit body; no deferring fmt/lint "to CI" as habitual substitute; IDE format-on-save is **not** a release gate.
+
+## B4. Local format before commit
+
+Run formatter/linter the way your repo defines it (`../lang/<language>.mdc`, e.g. `rust-fmt-discipline.mdc`); check/dry-run → fix → **`git add`** restaged paths. Prefer stdlib / minimal deps; pin versions.
+
+## B5. Done checklist
+
+Diff reviewed • type/build/lint per project conventions • formatter applied & restaged • one E2E or equivalent exercised • hooks not casually bypassed
+
+---
+
+## Coordination
+
+`clean-code-core.mdc`, `architecture.mdc`, `error-handling.mdc`, `security-guide.mdc`; `../lang/*.mdc` for concrete commands; `../patterns/*` + `.cursor/rules/project/` for bindings; `.cursor/rules/project/` MCP memory hooks (`../examples/project-binding/memory-mcp-sample.md`).

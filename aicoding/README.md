@@ -27,8 +27,9 @@ anchor       limits      e2e tests      a11y / states
 aicoding/
 ├── SKILL.md                          ← main entry; agents load this
 ├── README.md                         ← you are reading this
+├── package.json                       ← lightweight manifest for registries / ClawHub-style listings
 └── references/
-    ├── decision-hygiene.md           ← full Gate 1 (exclusive)
+    ├── decision-hygiene.md           ← expanded Gate 1 examples (canonical §A lives in ../common/engineering-lifecycle.mdc)
     ├── code-craft.md                 ← full Gate 2
     └── design-craft.md               ← full Gate 4
 ```
@@ -72,7 +73,7 @@ This skill **does not replace** the existing rule files — it's their **caller*
 
 | Layer | Files | How this skill references them |
 |---|---|---|
-| `common/` | `clean-code-core` / `architecture` / `decision-hygiene` / `quality-gates` / `error-handling` / `security-guide` (always-on) | Source of Gates 1–3 quantitative limits + discipline |
+| `common/` | `clean-code-core` / `architecture` / `engineering-lifecycle` / `error-handling` / `security-guide` (always-on) | Source of Gates 1–3 quantitative limits + lifecycle discipline |
 | `common/` | `comments-docs` / `imports` / `refactoring-guidelines` / `testing-principles` (triggered) | Gate 2 / Gate 4 details |
 | `lang/` | `clean-code-typescript` / `clean-code-rust` / `rust-fmt-discipline` / `typescript-testing` | code-craft language specifics |
 | `patterns/` | `multi-worktree` (pre-flight) / `plugin-architecture` / `im-bot-integration` / `memory-mcp-discipline` / `persona-architecture` | Architectural pattern reference, when relevant |
@@ -87,7 +88,7 @@ This skill **learns its form, fills its gaps**:
 | Paradigm | Process > Prose ✓ | Inherited |
 | Anti-rationalization table | Strong ✓ | Inherited |
 | Red flags + Verification | Strong ✓ | Inherited |
-| Decision-phase hygiene | Missing | **Filled** (Gate 1 fully borrowed from this repo's `common/decision-hygiene.mdc`) |
+| Decision-phase hygiene | Missing | **Filled** (Gate 1 aligns with `common/engineering-lifecycle.mdc` §A + this `references/decision-hygiene.md`) |
 | End-to-end gate | Scattered | Concentrated in Gate 3 |
 | Anti-AI-aesthetic checklist | Present | Further refined (rounding / shadows / spacing scale) |
 | Quantitative hard limits | Partial (~100 lines) | **Concentrated** (500/120/3/100) |
@@ -104,3 +105,4 @@ This skill **learns its form, fills its gaps**:
 - Keep `SKILL.md` ≤ ~400 lines (token economics)
 - Keep each reference ≤ ~250 lines
 - Changes must preserve every "Use when" trigger condition in the frontmatter `description`
+- Bump `package.json` `version` when publishing or mirroring into an external skill hub

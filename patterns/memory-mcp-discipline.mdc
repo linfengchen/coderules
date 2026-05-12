@@ -154,7 +154,7 @@ Length: < 200 chars. Specific enough that future-you understands without context
 1. `recall` query=`"streaming message renders as plain text"` signals=`["streaming_render","render_mode"]`
 2. Local miss → `search_community` same query, type=`Capsule`, outcome=`success`
 3. Hit at similarity 0.78, signature present → read payload for the approach
-4. Apply the approach + run E2E (per `../common/quality-gates.mdc`)
+4. Apply the approach + run E2E (per `../common/engineering-lifecycle.mdc` §B2)
 5. `record_outcome` signals=`["streaming_render","render_mode","<config-key>"]` summary=`"Fixed plain-text rendering by setting renderMode=card in config (verified via E2E)"` score=0.95
 
 ### Scenario B: Cross-Language Port, Stuck on Trait Design
@@ -174,7 +174,7 @@ Length: < 200 chars. Specific enough that future-you understands without context
 
 ## 8. Coordination With Other Rules
 
-- `../common/quality-gates.mdc#post-change-review--e2e-gate`: only `record_outcome` after E2E passes — captured experience is verified
+- `../common/engineering-lifecycle.mdc` §B2: only `record_outcome` after E2E passes — captured experience is verified
 - `../common/architecture.mdc#single-interface-definition`: before refactoring an interface, `recall` similar refactor pitfalls
 - `multi-worktree.mdc`: cross-worktree conflicts can be recorded with a `worktree_conflict` signal for future avoidance
 - Consuming project's `.cursor/rules/project/<name>-memory.mdc`: project-specific tool prefix, server name, signal dictionary (template: `../examples/project-binding/memory-mcp-sample.md`)

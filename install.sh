@@ -64,16 +64,31 @@ resolve_coderules_repo() {
   blue "==> Inferred CODERULES_REPO=$CODERULES_REPO (from install.sh checkout origin)"
 }
 
+_fetch_url_to_stdout() {
+  local url="$1"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --connect-timeout 10 --max-time 60 "$url"
+    return
+  fi
+  if command -v wget >/dev/null 2>&1; then
+    wget -qO- --timeout=60 "$url" 2>/dev/null || wget -qO- "$url"
+    return
+  fi
+  red "[coderules-install] Tarball fetch needs curl or wget on PATH (Alpine/minimal images: apk add curl or wget)."
+  exit 1
+}
+
 fetch_tarball() {
-  require_cmd curl
   require_cmd tar
   local url="https://codeload.github.com/${CODERULES_REPO}/tar.gz/refs/heads/${CODERULES_REF}"
   local tmp
   tmp="$(mktemp -d)"
   blue "==> Downloading $url"
-  if ! curl -fsSL "$url" | tar -xz -C "$tmp"; then
+  if ! _fetch_url_to_stdout "$url" | tar -xz -C "$tmp"; then
     rm -rf "$tmp"
     red "Download / extract failed (check CODERULES_REPO and CODERULES_REF)"
+    yellow "[coderules-install] Corporate proxy or air-gap? Try: export HTTPS_PROXY=... and/or http_proxy=... (lowercase for some tools)."
+    yellow "[coderules-install] TLS or network flake: retry; confirm codeload.github.com is reachable from this environment."
     return 1
   fi
   local extracted
@@ -158,9 +173,8 @@ install_global() {
   local always_on=(
     "common/clean-code-core.mdc"
     "common/architecture.mdc"
-    "common/decision-hygiene.mdc"
+    "common/engineering-lifecycle.mdc"
     "common/error-handling.mdc"
-    "common/quality-gates.mdc"
     "common/security-guide.mdc"
   )
   local out="$CODERULES_HOME/USER-RULES.md"
@@ -171,7 +185,7 @@ install_global() {
     echo
     echo "# coderules — Global User Rules"
     echo
-    echo "The always-on tier of coderules (6 files, ~7K tokens), flattened for Cursor's"
+    echo "The always-on tier of coderules (**5** merged core files, previously 6), flattened for Cursor's"
     echo "**Settings → Rules for AI → User Rules**. Applies to every project on this machine."
     echo
     echo "Trade-offs vs project-level install:"
@@ -201,11 +215,14 @@ install_global() {
   elif command -v xclip >/dev/null 2>&1; then
     xclip -selection clipboard < "$out"
     green "✓ Copied to clipboard via xclip."
+  elif command -v xsel >/dev/null 2>&1; then
+    xsel --clipboard --input < "$out"
+    green "✓ Copied to clipboard via xsel."
   elif command -v wl-copy >/dev/null 2>&1; then
     wl-copy < "$out"
     green "✓ Copied to clipboard via wl-copy."
   else
-    yellow "  No clipboard tool found. To copy manually:"
+    yellow "  No clipboard tool found (tried pbcopy, xclip, xsel, wl-copy). To copy manually:"
     yellow "    cat $out          (paste from terminal selection)"
   fi
 
@@ -215,7 +232,7 @@ install_global() {
   echo "  2. Paste into the User Rules text field"
   echo "  3. Click Save"
   echo
-  yellow "Note: ~7K of always-on tokens added to every prompt."
+  yellow "Note: ~6K of always-on tokens added to every prompt."
   yellow "      For per-project layered triggering (recommended), use:  install.sh cursor"
 }
 
@@ -264,7 +281,7 @@ Usage:
   ./install.sh <target> [project_dir]
 
 One-liner (no clone needed):
-  export CODERULES_REPO=OWNER/coderules
+  export CODERULES_REPO=Evomap/coderules
   export CODERULES_REF=main
   curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}/install.sh" | bash -s <target> [project_dir]
 
@@ -282,6 +299,8 @@ Env overrides:
                     optional when running ./install.sh from a clone (inferred from origin)
   CODERULES_REF     Branch / tag / commit to fetch (default: main)
   CODERULES_MODE    "tarball" (default) | "git"    — git enables pull-based updates
+
+Note: tarball mode prefers curl, falls back to wget; both honor HTTPS_PROXY / http_proxy. The curl|bash one-liner still requires curl to bootstrap install.sh unless you fetch the script with wget manually.
 EOF
 }
 

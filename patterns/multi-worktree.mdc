@@ -132,5 +132,5 @@ After a task is done:
 
 ## See Also
 
-- `../common/decision-hygiene.mdc` — pre-flight scan results are the canonical source of evidence anchors
+- `../common/engineering-lifecycle.mdc` — pre-flight scan results are the canonical source of evidence anchors
 - Consuming project's `.cursor/rules/project/<name>-monorepo.mdc` — project-specific worktree paths, status-doc location (template: `../examples/project-binding/monorepo-trunk-sample.md`)

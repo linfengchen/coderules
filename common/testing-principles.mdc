@@ -157,5 +157,5 @@ GOOD: inject a fake clock (vi.useFakeTimers / freezegun / mockito)
 
 - `../lang/typescript-testing.mdc` — Vitest / Jest framework details
 - `clean-code-core.mdc#structural-constraints` — file-size limits also apply to test files
-- `quality-gates.mdc#post-change-review--e2e-gate` — the E2E gate is the pyramid's hard top
+- `engineering-lifecycle.mdc` §B2 (post-change review & E2E) — the E2E gate is the pyramid's hard top
 - `error-handling.mdc#7-bug-fix-discipline` — the red-green flow lives there too

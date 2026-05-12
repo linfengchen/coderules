@@ -10,7 +10,7 @@ A project-agnostic, layered Cursor/Claude-Code rule pack — universal coding pr
 
 ```
 coderules/
-├── common/        Universal principles  (6 always-on, 4 triggered)
+├── common/        Universal principles  (5 always-on, 5 triggered)
 ├── lang/          Per-language syntax   (TypeScript / Rust / Python / Go / testing)
 ├── patterns/      Reusable architecture (multi-worktree / multi-agent / plugin / IM bot / memory MCP / persona / database)
 ├── examples/      Reference templates   (.md only — never auto-loaded)
@@ -26,14 +26,14 @@ For the full layer/file map see [`INDEX.md`](./INDEX.md).
 
 This repo has **no hard-coded GitHub owner** in the docs or installer: point at whichever fork or org you install from.
 
-1. **`curl | bash`** — export `CODERULES_REPO` (`owner/repo` as on GitHub), then fetch `install.sh` from that slug.
+1. **`curl | bash`** — export `CODERULES_REPO` (`owner/repo` as on GitHub), then fetch `install.sh` from that slug. The defaults below target **`Evomap/coderules`**; use your own slug for forks or mirrors.
 2. **Git clone** — run `./install.sh` inside the checkout; `install.sh` infers `CODERULES_REPO` from `origin` when it looks like `github.com/…`.
 
 ### Option 1 — installer script (recommended, supports update / uninstall)
 
 ```bash
 # Set once per shell to the GitHub path of the repo you trust (fork or upstream).
-export CODERULES_REPO=OWNER/coderules
+export CODERULES_REPO=Evomap/coderules
 export CODERULES_REF=main
 
 # Cursor — fetch rules + skill into the current project
@@ -64,7 +64,7 @@ To uninstall:
 If you don't want any installer or central directory, extract the layers straight into your project:
 
 ```bash
-export CODERULES_REPO=OWNER/coderules
+export CODERULES_REPO=Evomap/coderules
 export CODERULES_REF=main
 _repo="${CODERULES_REPO##*/}"
 mkdir -p .cursor/rules && \
@@ -98,7 +98,7 @@ This drops the layers as **plain files** into `.cursor/rules/`. Include `example
 Cursor stores **User Rules** (Settings → Rules for AI) as a single text blob applied to every project. There is no `~/.cursor/rules/*.mdc` directory equivalent. To install globally:
 
 ```bash
-export CODERULES_REPO=OWNER/coderules
+export CODERULES_REPO=Evomap/coderules
 export CODERULES_REF=main
 curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}/install.sh" | bash -s global
 ```
@@ -106,7 +106,7 @@ curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/${CODERULES_REF}
 This:
 
 1. Fetches the rule pack
-2. Concatenates the 6 always-on rules into `~/.coderules/USER-RULES.md` (~32 KB / ~8K tokens, frontmatter stripped)
+2. Concatenates the five always-on rules into `~/.coderules/USER-RULES.md` (~28–32 KB / ~7–8K tokens, frontmatter stripped)
 3. **Auto-copies to your clipboard** (macOS `pbcopy` / Linux `xclip` / Wayland `wl-copy`)
 4. Tells you to paste into Cursor → Settings → Rules for AI → User Rules → Save
 
@@ -137,7 +137,7 @@ For the rule layers in a project, also run `install.sh cursor <dir>` — Claude 
 No installer support yet; splice the always-on tier into your system prompt manually:
 
 ```bash
-cat ~/.coderules/common/{clean-code-core,architecture,decision-hygiene,error-handling,quality-gates,security-guide}.mdc \
+cat ~/.coderules/common/{clean-code-core,architecture,engineering-lifecycle,error-handling,security-guide}.mdc \
     > /tmp/system-prompt-rules.txt
 # Then prepend that file to your agent's system prompt
 ```
@@ -183,16 +183,15 @@ cd ~/path/to/your/repo
 
 # 1) Total rule files reachable
 find -L .cursor/rules -name '*.mdc' | wc -l
-# Expected: 24   (11 common + 6 lang + 7 patterns)
+# Expected: 23   (10 common + 6 lang + 7 patterns)
 
 # 2) Always-on tier (alwaysApply: true) — should be ≤ 6 from coderules
 find -L .cursor/rules -name '*.mdc' | xargs grep -l 'alwaysApply: true' | xargs -n1 basename | sort
 # Expected:
 #   architecture.mdc
 #   clean-code-core.mdc
-#   decision-hygiene.mdc
+#   engineering-lifecycle.mdc
 #   error-handling.mdc
-#   quality-gates.mdc
 #   security-guide.mdc
 
 # 3) Are rules being picked up by Cursor?
@@ -260,8 +259,13 @@ Default `find` doesn't follow symlinks. Use `find -L .cursor/rules -name '*.mdc'
 
 ### `curl: (35) SSL_ERROR_SYSCALL` or other network glitch
 
-Transient. Retry the same command. If persistent, check corporate proxy / firewall against `codeload.github.com` and `raw.githubusercontent.com`.
+Transient. Retry the same command. If persistent: confirm `codeload.github.com` and `raw.githubusercontent.com` are reachable; **`export HTTPS_PROXY`** / **`http_proxy`** if your environment requires an explicit proxy (Git and curl honor these in most setups).
 
+The bundled **`install.sh`** tarball fetch uses **`curl`** when present, otherwise **`wget`** — minimal containers still need **`tar`** plus one HTTP client (**`apk add curl`** / **`wget`** on Alpine-class images).
+
+### Offline / air-gap
+
+See **Need air-gapped install** below — fetch the tarball elsewhere, **`scp`** it in, then extract and link.
 ### Want to install but didn't specify a project dir
 
 `install.sh cursor` defaults to current directory (`$PWD`). If you ran it in your home directory by accident, undo with:
@@ -288,7 +292,7 @@ Manually fetch the tarball anywhere with internet, scp into the target machine, 
 
 ```bash
 # On a machine with internet:
-export CODERULES_REPO=OWNER/coderules
+export CODERULES_REPO=Evomap/coderules
 export CODERULES_REF=main
 curl -fsSL "https://codeload.github.com/${CODERULES_REPO}/tar.gz/refs/heads/${CODERULES_REF}" -o coderules.tar.gz
 

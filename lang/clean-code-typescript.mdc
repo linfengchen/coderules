@@ -103,3 +103,7 @@ const route = { path: "/a", method: "GET" } satisfies Route;
 - Reusable logic goes into `useXxx` custom hooks.
 - Co-locate styles (CSS Module / styled / Tailwind — match the project's choice). Don't scatter style files across the tree.
 - Effect dependency arrays must be complete; missing deps are bugs.
+
+## Canonical typecheck build (gates)
+
+Used by global review steps in `../common/engineering-lifecycle.mdc` (phase B): run the project's **typed build or check** exactly as wired in `package.json` / CI (typical shapes: **`npm run build`**, **`pnpm run check`**, **`npx tsc --noEmit`**, **`npx vite build`** — yours may differ). Document the commands your repo treats as authoritative in `.cursor/rules/project/<binding>.mdc`.
