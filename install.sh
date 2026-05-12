@@ -4,7 +4,6 @@
 #
 set -euo pipefail
 
-CODERULES_REPO="${CODERULES_REPO:-linfengchen/coderules}"
 CODERULES_HOME="${CODERULES_HOME:-$HOME/.coderules}"
 CODERULES_REF="${CODERULES_REF:-main}"
 CODERULES_MODE="${CODERULES_MODE:-tarball}"
@@ -19,6 +18,50 @@ blue()   { printf '\033[34m%s\033[0m\n' "$*"; }
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || { red "Required command not found: $1"; exit 1; }
+}
+
+slug_from_github_remote_url() {
+  local raw="${1%.git}"
+  if [[ "$raw" =~ ^git@github\.com:([^/]+)/(.+)$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    return 0
+  fi
+  if [[ "$raw" =~ ^ssh://git@github\.com/([^/]+)/(.+)$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    return 0
+  fi
+  if [[ "$raw" =~ ^https://github\.com/([^/]+)/([^/?#]+)$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    return 0
+  fi
+  return 1
+}
+
+infer_coderules_repo() {
+  local script_path="${BASH_SOURCE[0]:-}"
+  if [[ -z "$script_path" || "$script_path" == "-" || ! -f "$script_path" ]]; then
+    return 1
+  fi
+  local root
+  root="$(cd "$(dirname "$script_path")" && pwd)"
+  if [[ ! -d "$root/.git" ]]; then
+    return 1
+  fi
+  require_cmd git
+  local url
+  url="$(git -C "$root" remote get-url origin 2>/dev/null)" || return 1
+  [[ -n "$url" ]] || return 1
+  slug_from_github_remote_url "$url"
+}
+
+resolve_coderules_repo() {
+  if [[ -n "${CODERULES_REPO:-}" ]]; then
+    return 0
+  fi
+  local inferred
+  inferred="$(infer_coderules_repo)" || return 1
+  CODERULES_REPO="$inferred"
+  blue "==> Inferred CODERULES_REPO=$CODERULES_REPO (from install.sh checkout origin)"
 }
 
 fetch_tarball() {
@@ -62,6 +105,11 @@ fetch_git() {
 }
 
 ensure_fetch() {
+  if ! resolve_coderules_repo; then
+    red "[coderules-install] Set CODERULES_REPO to owner/repo (GitHub), e.g. export CODERULES_REPO=myorg/coderules"
+    red "[coderules-install] Or run ./install.sh from a git clone of this repo (origin must be github.com)."
+    exit 1
+  fi
   if [[ -d "$CODERULES_HOME/.git" ]] || [[ "$CODERULES_MODE" == "git" ]]; then
     fetch_git
   else
@@ -216,7 +264,8 @@ Usage:
   ./install.sh <target> [project_dir]
 
 One-liner (no clone needed):
-  curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s <target> [project_dir]
+  export CODERULES_REPO=OWNER/coderules
+  curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s <target> [project_dir]
 
 Targets:
   cursor [dir]      Link rules + skill into <dir>/.cursor/rules/  (default: $PWD)
@@ -228,7 +277,8 @@ Targets:
 
 Env overrides:
   CODERULES_HOME    Where to keep the rule pack    (default: ~/.coderules)
-  CODERULES_REPO    Source repo (owner/repo form)  (default: linfengchen/coderules)
+  CODERULES_REPO    Source repo (owner/repo on GitHub). Required for curl|bash;
+                    optional when running ./install.sh from a clone (inferred from origin)
   CODERULES_REF     Branch / tag / commit to fetch (default: main)
   CODERULES_MODE    "tarball" (default) | "git"    — git enables pull-based updates
 EOF

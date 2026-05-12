@@ -24,23 +24,33 @@ For the full layer/file map see [`INDEX.md`](./INDEX.md).
 
 ## Quick Start (one command, no git required)
 
+This repo has **no hard-coded GitHub owner** in the docs or installer: point at whichever fork or org you install from.
+
+1. **`curl | bash`** — export `CODERULES_REPO` (`owner/repo` as on GitHub), then fetch `install.sh` from that slug.
+2. **Git clone** — run `./install.sh` inside the checkout; `install.sh` infers `CODERULES_REPO` from `origin` when it looks like `github.com/…`.
+
 ### Option 1 — installer script (recommended, supports update / uninstall)
 
 ```bash
+# Set once per shell to the GitHub path of the repo you trust (fork or upstream).
+export CODERULES_REPO=OWNER/coderules
+
 # Cursor — fetch rules + skill into the current project
-curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s cursor
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s cursor
 
 # Cursor (global, all projects on this machine — pastes into User Rules)
-curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s global
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s global
 
 # Claude Code — install aicoding skill globally
-curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s claude
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s claude
 
 # Both project-level (Cursor rules + Claude skill)
-curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s all ~/path/to/your/repo
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s all ~/path/to/your/repo
 ```
 
-The script downloads a tarball (no `git` needed) into `~/.coderules`, then symlinks `common/`, `lang/`, `patterns/`, `aicoding/`, and `examples/` into `<project>/.cursor/rules/`. Idempotent — re-running just refreshes. Set `CODERULES_MODE=git` if you prefer a `git clone` you can `git pull` later.
+**Clone instead of curl:** after `git clone … && cd coderules`, run `./install.sh cursor` — no `CODERULES_REPO` env needed unless `origin` is not GitHub HTTPS/SSH.
+
+The script downloads a tarball (no separate `git` needed for fetch) into `~/.coderules`, then symlinks `common/`, `lang/`, `patterns/`, `aicoding/`, and `examples/` into `<project>/.cursor/rules/`. Idempotent — re-running just refreshes. Set `CODERULES_MODE=git` if you prefer a `git clone` cache you can `git pull` later.
 
 To uninstall:
 
@@ -53,15 +63,20 @@ To uninstall:
 If you don't want any installer or central directory, extract the layers straight into your project:
 
 ```bash
+export CODERULES_REPO=OWNER/coderules
+export CODERULES_REF=main
+_repo="${CODERULES_REPO##*/}"
 mkdir -p .cursor/rules && \
-  curl -fsSL https://codeload.github.com/linfengchen/coderules/tar.gz/refs/heads/main | \
+  curl -fsSL "https://codeload.github.com/${CODERULES_REPO}/tar.gz/refs/heads/${CODERULES_REF}" | \
   tar -xz -C .cursor/rules --strip-components=1 \
-    coderules-main/common \
-    coderules-main/lang \
-    coderules-main/patterns \
-    coderules-main/aicoding \
-    coderules-main/examples
+    "${_repo}-${CODERULES_REF}"/common \
+    "${_repo}-${CODERULES_REF}"/lang \
+    "${_repo}-${CODERULES_REF}"/patterns \
+    "${_repo}-${CODERULES_REF}"/aicoding \
+    "${_repo}-${CODERULES_REF}"/examples
 ```
+
+GitHub wraps the tarball in **`{repository-name}-{ref}`**. `_repo` is the trailing segment of `CODERULES_REPO` (the repo name); list the archive if your default branch tarball uses a non-obvious suffix.
 
 This drops the layers as **plain files** into `.cursor/rules/`. Include `examples/` so relative links like `../examples/project-binding/*.md` from `patterns/*.mdc` resolve. To update: re-run the same command (will overwrite). Trade-off: every consuming project carries its own copy.
 
@@ -82,7 +97,8 @@ This drops the layers as **plain files** into `.cursor/rules/`. Include `example
 Cursor stores **User Rules** (Settings → Rules for AI) as a single text blob applied to every project. There is no `~/.cursor/rules/*.mdc` directory equivalent. To install globally:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/linfengchen/coderules/main/install.sh | bash -s global
+export CODERULES_REPO=OWNER/coderules
+curl -fsSL "https://raw.githubusercontent.com/${CODERULES_REPO}/main/install.sh" | bash -s global
 ```
 
 This:
@@ -270,9 +286,10 @@ Manually fetch the tarball anywhere with internet, scp into the target machine, 
 
 ```bash
 # On a machine with internet:
-curl -fsSL https://codeload.github.com/linfengchen/coderules/tar.gz/refs/heads/main -o coderules.tar.gz
+export CODERULES_REPO=OWNER/coderules
+curl -fsSL "https://codeload.github.com/${CODERULES_REPO}/tar.gz/refs/heads/main" -o coderules.tar.gz
 
-# Transfer + extract:
+# Transfer + extract (top-level dir inside the tarball is usually coderules-main if repo name is "coderules"):
 mkdir -p ~/.coderules && tar -xz -C ~/.coderules --strip-components=1 -f coderules.tar.gz
 ln -s ~/.coderules/{common,lang,patterns,examples,aicoding} ~/path/to/your/repo/.cursor/rules/
 ```
