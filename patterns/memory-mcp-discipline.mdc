@@ -5,7 +5,7 @@ alwaysApply: false
 
 # Memory-MCP Discipline
 
-Universal usage rules for any MCP-based memory system that exposes a `recall + record + (optional community search + install)` tool family. The specific server name, tool prefix, and project-domain signal vocabulary live in the consuming project's `.cursor/rules/project/<name>-memory.mdc`. See `../examples/project-evox/gep-memory.md` for a template.
+Universal usage rules for any MCP-based memory system that exposes a `recall + record + (optional community search + install)` tool family. The specific server name, tool prefix, and project-domain signal vocabulary live in the consuming project's `.cursor/rules/project/<name>-memory.mdc`. See `../examples/project-binding/memory-mcp-sample.md` for a template.
 
 ## 1. When to Use
 
@@ -126,7 +126,7 @@ Length: < 200 chars. Specific enough that future-you understands without context
 
 - At least 2 items
 - At least 1 must be a **domain keyword** (e.g., `streaming_render`, not just `log_error`)
-- Use the project's signal dictionary as the source — defined in the consuming project's `.cursor/rules/project/<name>-memory.mdc` (template signal dictionary: `../examples/project-evox/gep-memory.md#signals-dictionary`)
+- Use the project's signal dictionary as the source — defined in the consuming project's `.cursor/rules/project/<name>-memory.mdc` (template signal dictionary: `../examples/project-binding/memory-mcp-sample.md`)
 
 ### 5.3 `score` Rubric
 
@@ -177,4 +177,4 @@ Length: < 200 chars. Specific enough that future-you understands without context
 - `../common/quality-gates.mdc#post-change-review--e2e-gate`: only `record_outcome` after E2E passes — captured experience is verified
 - `../common/architecture.mdc#single-interface-definition`: before refactoring an interface, `recall` similar refactor pitfalls
 - `multi-worktree.mdc`: cross-worktree conflicts can be recorded with a `worktree_conflict` signal for future avoidance
-- Consuming project's `.cursor/rules/project/<name>-memory.mdc`: project-specific tool prefix, server name, signal dictionary (template: `../examples/project-evox/gep-memory.md`)
+- Consuming project's `.cursor/rules/project/<name>-memory.mdc`: project-specific tool prefix, server name, signal dictionary (template: `../examples/project-binding/memory-mcp-sample.md`)

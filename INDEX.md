@@ -11,14 +11,14 @@ coderules/
 ├── lang/                   ← language-specific syntax, glob-triggered
 ├── patterns/               ← architectural patterns (project-agnostic), desc/glob-triggered
 ├── examples/               ← reference templates, NOT loaded (.md, not .mdc)
-│   └── project-evox/       ← EvoX-specific bindings, copy + rename to deploy
+│   └── project-binding/    ← binding templates (.md), copy + fill `<...>` placeholders
 └── aicoding/            ← agent skill (top-level caller, not a rule)
     ├── SKILL.md
     ├── README.md
     └── references/
 ```
 
-> **No `project/` layer in this repo.** Project-specific bindings (paths, env vars, API URLs) belong in your repo's own `.cursor/rules/project/`. See `examples/project-evox/` for templates.
+> **No `project/` layer in this repo.** Project-specific bindings (paths, env vars, API URLs) belong in your repo's own `.cursor/rules/project/`. See `examples/project-binding/` for templates.
 
 ---
 
@@ -125,19 +125,19 @@ Architectural patterns extracted to be project-agnostic. Each pattern expects a 
 
 ---
 
-## examples/project-evox/ (5 files, NOT loaded)
+## examples/project-binding/ (templates, NOT loaded)
 
-EvoX-specific reference templates showing how to write a `project/` binding layer. Files use `.md` extension so Cursor never auto-injects them.
+Generic reference templates for a `project/` binding layer in **your** repo. Files use `.md` so Cursor never auto-injects them.
 
 | Template | Binds | Carries |
 |---|---|---|
-| `evox-monorepo.md` | (trunk) | Layout / Phase 6b runtime / Feishu E2E / jiti cache / agent processes |
-| `evox-extension.md` | `plugin-architecture.mdc` | Extension paths + ExtensionAPI symbol + log dir |
-| `feishu-sdk.md` | `im-bot-integration.mdc` | Feishu API endpoints / emoji_type table / block IDs |
-| `gep-memory.md` | `memory-mcp-discipline.mdc` | GEP server name + tool prefix + signal dictionary |
-| `mbti-persona.md` | `persona-architecture.mdc` | 4-axis dichotomy + EvoX crate paths + splitter |
+| `monorepo-trunk-sample.md` | `multi-worktree.mdc`, `multi-agent.mdc` | Layout hints, worktrees, kill/E2E commands, magnet-file list |
+| `plugin-extension-sample.md` | `plugin-architecture.mdc` | Extension root, host loader symbol, log dir |
+| `im-feishu-sample.md` | `im-bot-integration.mdc` | Lark/Feishu API sample (substitute your chat vendor) |
+| `memory-mcp-sample.md` | `memory-mcp-discipline.mdc` | MCP server id, tool naming, signal examples |
+| `persona-mbti-sample.md` | `persona-architecture.mdc` | MBTI-style axes + placeholder paths |
 
-To deploy: copy a template into your repo's `.cursor/rules/project/`, rename `.md` → `.mdc`, replace EvoX values. See `examples/project-evox/README.md`.
+To deploy: copy into your repo's `.cursor/rules/project/`, rename `.md` → `.mdc`, replace placeholders. See `examples/project-binding/README.md`.
 
 ---
 
@@ -161,16 +161,16 @@ To deploy: copy a template into your repo's `.cursor/rules/project/`, rename `.m
 | `architecture.mdc` | `common/architecture.mdc` | move + dedupe (error-handling extracted) |
 | `decision-hygiene.mdc` | `common/decision-hygiene.mdc` | move |
 | `refactoring-guidelines.mdc` | `common/refactoring-guidelines.mdc` | move |
-| `project-standards.mdc` | **split into 3** | → `common/quality-gates.mdc` + `common/security-guide.mdc` + `project/evox-monorepo.mdc` |
+| `project-standards.mdc` | **split into 3** | → `common/quality-gates.mdc` + `common/security-guide.mdc` + `project/trunk.mdc` (later moved to examples) |
 | `clean-code-typescript.mdc` | `lang/clean-code-typescript.mdc` | move + dedupe |
 | `clean-code-rust.mdc` | `lang/clean-code-rust.mdc` | move + dedupe |
 | `rust-fmt-discipline.mdc` | `lang/rust-fmt-discipline.mdc` | move |
 | `testing-conventions.mdc` | `lang/typescript-testing.mdc` | move + rename |
-| `evox-extension.mdc` | `project/evox-extension.mdc` | move |
-| `feishu-sdk.mdc` | `project/feishu-sdk.mdc` | move |
+| `extension.mdc` | `project/extension.mdc` | move |
+| `im-sdk.mdc` | `project/im-sdk.mdc` | move |
 | `mbti-persona.mdc` | `project/mbti-persona.mdc` | move + frontmatter |
 | `worktree-coordination.mdc` | `project/worktree-coordination.mdc` | move |
-| `gep-memory.mdc` | `project/gep-memory.mdc` | move + `alwaysApply: false` |
+| `memory.mdc` | `project/memory.mdc` | move + `alwaysApply: false` |
 | — (new) | `common/error-handling.mdc` | extracted |
 | — (new) | `common/comments-docs.mdc` | per Google Style |
 | — (new) | `common/imports.mdc` | per Google Style |
@@ -179,7 +179,7 @@ To deploy: copy a template into your repo's `.cursor/rules/project/`, rename `.m
 
 ### v2 → v2.1 (English Unification)
 
-All `.mdc` files + `aicoding/*` translated to English for token economy and improved instruction following. Project identifiers (EvoX, evox-rs, feishu-bridge, gep-memory) kept as-is. Code blocks, file paths, and commands unchanged. The agent's user-facing replies remain in Chinese (per `project/evox-monorepo.mdc#1-language--communication`).
+All `.mdc` files + `aicoding/*` were translated to English for token economy and improved instruction following. Repo-specific jargon in **consuming projects** stays in their own `.cursor/rules/project/` bindings, not in this pack.
 
 ### v2.1 → v2.2 (Pattern Extraction)
 
@@ -188,11 +188,11 @@ The new `patterns/` layer carries project-agnostic architectural patterns lifted
 | v2.1 file (project/) | v2.2 destination |
 |---|---|
 | `project/worktree-coordination.mdc` | → `patterns/multi-worktree.mdc` (deleted from project/) |
-| `project/evox-extension.mdc` | trimmed to thin binding; pattern → `patterns/plugin-architecture.mdc` |
-| `project/feishu-sdk.mdc` | trimmed to Feishu API table; pattern → `patterns/im-bot-integration.mdc` |
-| `project/gep-memory.mdc` | trimmed to signals dictionary; pattern → `patterns/memory-mcp-discipline.mdc` |
+| `project/extension.mdc` | trimmed to thin binding; pattern → `patterns/plugin-architecture.mdc` |
+| `project/im-sdk.mdc` | trimmed to vendor SDK table; pattern → `patterns/im-bot-integration.mdc` |
+| `project/memory.mdc` | trimmed to signals dictionary; pattern → `patterns/memory-mcp-discipline.mdc` |
 | `project/mbti-persona.mdc` | trimmed to 4-axis + paths; pattern → `patterns/persona-architecture.mdc` |
-| `project/evox-monorepo.mdc` | unchanged content; cross-refs updated to `../patterns/...` |
+| `project/trunk.mdc` | values-only trunk; cross-refs updated to `../patterns/...` |
 
 Outcome: `project/` files dropped ~50% in size (rules → patterns/, values stay in project/). Any other project can adopt `common/` + `lang/` + `patterns/` directly and only write its own `project/<bindings>.mdc`.
 
@@ -211,19 +211,23 @@ To prevent attention dilution, demoted 6 files from `alwaysApply: true` → `fal
 
 Outcome: always-on count `13 → 7`, always-on tokens `~18K → ~9K` (-50%).
 
-### v2.3 → v2.4 (project/ → examples/)
+### v2.3 → v2.4 (`project/` → `examples/`)
 
-`project/` was holding EvoX-specific bindings inside a sharable rule pack. Resolved by moving:
+Loaded `project/*.mdc` bindings were lifted out of the portable pack so Cursor never injects foreign paths into arbitrary repos.
 
-| Old location (loaded) | New location (NOT loaded) |
+| Old intent | New canonical template (never loaded — `.md`) |
 |---|---|
-| `project/evox-monorepo.mdc` | `examples/project-evox/evox-monorepo.md` |
-| `project/evox-extension.mdc` | `examples/project-evox/evox-extension.md` |
-| `project/feishu-sdk.mdc` | `examples/project-evox/feishu-sdk.md` |
-| `project/gep-memory.mdc` | `examples/project-evox/gep-memory.md` |
-| `project/mbti-persona.mdc` | `examples/project-evox/mbti-persona.md` |
+| Monorepo / trunk (worktrees, E2E, kill commands) | `examples/project-binding/monorepo-trunk-sample.md` |
+| Extension host wiring | `examples/project-binding/plugin-extension-sample.md` |
+| Vendor chat SDK cheatsheet | `examples/project-binding/im-feishu-sample.md` (substitute vendor) |
+| Memory MCP naming + signals | `examples/project-binding/memory-mcp-sample.md` |
+| Persona axes / paths | `examples/project-binding/persona-mbti-sample.md` |
 
-Extension change `.mdc → .md` ensures Cursor will not auto-inject these. Always-on tier now `7 → 6` files. Project-specific bindings (if any) live in the **consuming** project's `.cursor/rules/project/`, not in `coderules/`.
+Extension `.mdc → .md` guarantees Cursor skips them.
+
+### v2.5+ (neutral binding examples)
+
+The `examples/project-binding/` tree uses **generic placeholders** (`<AGENT_HOME>`, `<REPO>/…`) instead of embedding one product's crates or MCP ids in portable rules.
 
 ### v2.4 → v2.5 (Targeted Additions, no always-on growth)
 

@@ -7,7 +7,7 @@ alwaysApply: false
 
 When a repo runs several git worktrees in parallel (different branches, different agent sessions, different humans), the same file or module can easily be claimed twice. This rule defines the pre-flight scan, the claim mechanism, and conflict resolution.
 
-The repo's specific worktree paths and parity-tracking docs are bound in the consuming project's own `.cursor/rules/project/<name>-monorepo.mdc`. See `../examples/project-evox/evox-monorepo.md` for a template.
+The repo's specific worktree paths and parity-tracking docs are bound in the consuming project's own `.cursor/rules/project/<name>-monorepo.mdc`. See `../examples/project-binding/monorepo-trunk-sample.md` for a template.
 
 ## 1. Pre-Flight: 4 Mandatory Scans Before Starting
 
@@ -133,4 +133,4 @@ After a task is done:
 ## See Also
 
 - `../common/decision-hygiene.mdc` — pre-flight scan results are the canonical source of evidence anchors
-- Consuming project's `.cursor/rules/project/<name>-monorepo.mdc` — project-specific worktree paths, status-doc location (template: `../examples/project-evox/evox-monorepo.md`)
+- Consuming project's `.cursor/rules/project/<name>-monorepo.mdc` — project-specific worktree paths, status-doc location (template: `../examples/project-binding/monorepo-trunk-sample.md`)

@@ -51,13 +51,13 @@ Biome's `noExplicitAny` is set to `warn`. Tighten in this order:
 
 ### Priority 1 — Cross-package public APIs (one batch already done)
 
-- `evo-session` Hub client: `HubAsset`, `HubFetchResponse`, `HubPublishResult`
-- `agent-core` evolution hooks: removed `(m as any).isError`
-- `extensions/loader.ts`: `ExtensionFactory` is now typed
+- Example internal client types: `HubAsset`, `HubFetchResponse`, `HubPublishResult`
+- Example hook surface: removed unsafe `(m as any).isError` patterns where applicable
+- Extension loader: factory types made explicit instead of `any`
 
-### Priority 2 — `interactive-mode.ts` delegation interface
+### Priority 2 — Large interactive host module
 
-Currently 32 instances of `this as any` are passed to submodules. Define:
+Currently many `this as any` forwards into submodules. Define a narrow host interface consumed by submodules instead:
 
 ```typescript
 interface InteractiveModeHost {
@@ -73,9 +73,9 @@ All submodules consume `InteractiveModeHost` instead of `any`.
 
 Use the OpenAI / Anthropic / Google SDK's own types to replace `any` responses in the provider layer.
 
-### Priority 4 — web-ui Lark callbacks
+### Priority 4 — Web shell / embed callbacks
 
-Type the callbacks in web-ui that interact with external APIs.
+Type the callbacks in thin web UI layers that call external APIs.
 
 ### Standard for new code
 
@@ -149,17 +149,13 @@ Don't apply this when there are only 2 branches or when the branches share most 
 
 ## Test-Coverage Strategy
 
-All Vitest packages have v8 coverage configured (`vitest.config.ts`):
+All Vitest packages should use v8 coverage (`vitest.config.ts`) with per-package `include` / `exclude` tuned to your layout (for example exclude `**/*.generated.ts`).
 
-- `ai`, `agent`, `coding-agent`, `evo-session`: `include: ["src/**/*.ts"]`, `exclude: ["**/*.generated.ts"]`
-- `tui`: `include: ["src/**/*.ts"]`
-- `web-ui`: `include: ["src/**/*.ts"]`, environment: `happy-dom`
+Run coverage: `npm run test:coverage` (adjust to your scripts).
 
-Run coverage: `npm run test:coverage`.
-
-Phase targets:
+Phase targets (tune to your monorepo boundaries):
 
 1. Collect baseline data first (current coverage).
-2. Core modules (agent-core, ai, evo-session) target 60%+.
-3. coding-agent targets 40%+ (TUI / CLI interactions are hard to unit-test).
-4. web-ui targets 30%+ (DOM-environment limits).
+2. Core libraries (shared domain + API client) target 60%+.
+3. CLI / TUI hosts target 40%+ (integration-heavy).
+4. DOM / embed UI target 30%+ (environment limits).

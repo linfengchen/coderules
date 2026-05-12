@@ -7,17 +7,17 @@ The first 5 cuts were structural:
 | Cut | Action | Status |
 |---|---|---|
 | 1 | Initial restructure into `common/ lang/ project/` | ✅ done |
-| 2 | Split `project-standards.mdc` → `quality-gates` + `security-guide` + `evox-monorepo` | ✅ done |
+| 2 | Split `project-standards.mdc` → `quality-gates` + `security-guide` + `project/trunk.mdc` (later moved to `examples/`) | ✅ done |
 | 3 | Extract `error-handling.mdc` from `architecture` + `clean-code-typescript` + `clean-code-rust` | ✅ done |
 | 4 | Fill Google-Style gaps: `comments-docs` + `imports` + `testing-principles` | ✅ done |
-| 5 | Downgrade unnecessary `alwaysApply: true` to `false` (`gep-memory`) | ✅ done |
+| 5 | Downgrade unnecessary `alwaysApply: true` to `false` (memory / project-scope rules) | ✅ done |
 | **6** | **Regression test the rules in real sessions** | **plan below** |
 
-A 7th cut followed in v2.2: extracted architectural patterns from `project/` to a new `patterns/` layer so other projects can adopt the rules without inheriting EvoX-specific paths / tool names.
+A 7th cut followed in v2.2: extracted architectural patterns from `project/` to a new `patterns/` layer so other projects can adopt the rules without inheriting foreign paths or tool names.
 
 An 8th cut in v2.3 capped the always-on tier at **≤ 7 files / ~9K tokens** by demoting 6 files from `alwaysApply: true` → `false`.
 
-A 9th cut in v2.4 dropped `project/` entirely from the rule pack: EvoX-specific bindings moved to `examples/project-evox/` as `.md` templates (Cursor only loads `.mdc`). The rule pack is now project-agnostic; consuming projects write their own `.cursor/rules/project/`. Always-on tier in `coderules/` is now **≤ 6 files / ~7K tokens**. See INDEX `v2.1 → v2.2 → v2.3 → v2.4` migration map.
+A 9th cut in v2.4 dropped `project/` entirely from the rule pack: bindings moved to `examples/project-binding/` as `.md` templates (Cursor only loads `.mdc`). Consuming repos keep real values under their own `.cursor/rules/project/`. Always-on tier in `coderules/` is **≤ 6 files / ~7K tokens**. See INDEX migration map.
 
 ---
 
@@ -40,10 +40,10 @@ Six scenarios that together touch all three universal layers (`common/` + `lang/
 |---|---|---|---|
 | **T1** | Decision-hygiene check: ask the agent "give me a plan to add OAuth login to this project" | `aicoding/SKILL.md` (Gate 1) + `common/decision-hygiene.mdc` | Verify claim decomposition + evidence anchors flow |
 | **T2** | Edit a `.rs` file with a bare `unwrap()`, ask the agent to review | `lang/clean-code-rust.mdc` + `common/error-handling.mdc` (via reference) + `lang/rust-fmt-discipline.mdc` | Verify the dedupe via reference still triggers `error-handling` discipline |
-| **T3** | In a **separate** consuming project that copied `examples/project-evox/feishu-sdk.md` → `.cursor/rules/project/<bridge>-sdk.mdc`: add a chat-bridge handler under `extensions/<bridge>/` that empty-catches | `patterns/plugin-architecture.mdc` + `patterns/im-bot-integration.mdc` + the project's binding + `common/error-handling.mdc` | Verify pattern + project-binding cooperation works **outside** `coderules/` (since `coderules/` itself no longer ships a `project/` layer) |
+| **T3** | In a **separate** consuming project that copied `examples/project-binding/im-feishu-sample.md` → `.cursor/rules/project/<bridge>-sdk.mdc`: add a chat-bridge handler under `extensions/<bridge>/` that empty-catches | `patterns/plugin-architecture.mdc` + `patterns/im-bot-integration.mdc` + the project's binding + `common/error-handling.mdc` | Verify pattern + project-binding cooperation works **outside** `coderules/` |
 | **T4** | Refactor a 800-line .ts file into smaller modules | `common/refactoring-guidelines.mdc` (desc-triggered) + `lang/clean-code-typescript.mdc` | Verify desc-triggered rules fire on intent (not always-on) |
 | **T5** | Generate a React dashboard component without a design system | `aicoding/SKILL.md` (Gate 4) + `aicoding/references/design-craft.md` | Verify anti-AI-aesthetic rules + four-state requirement triggers |
-| **T6** | Ask "how should we structure a new chat-platform integration for Discord?" in a non-EvoX repo (or hypothetical) | `patterns/im-bot-integration.mdc` (must be portable, no EvoX leakage) | Verify the pattern is project-agnostic — agent should not pull in Feishu-specific values when Discord is the target |
+| **T6** | Ask "how should we structure a new chat-platform integration for Discord?" in a fresh repo | `patterns/im-bot-integration.mdc` must stay vendor-neutral in body text | Discord plan must not silently import another vendor's env vars / emoji tables from a sample binding |
 
 ---
 
@@ -79,16 +79,16 @@ Six scenarios that together touch all three universal layers (`common/` + `lang/
 - Agent says "looks fine" → error-handling rule didn't trigger
 - Agent rewrites with `unwrap_or` but doesn't surface the discipline → cross-reference broken
 
-### T3 — Feishu-Bridge Project Overlay
+### T3 — Chat-bridge project overlay
 
-**Setup**: a handler with `try { sendCard(); } catch {}` under `~/.evox/agent/extensions/feishu-bridge/handler.ts`
+**Setup**: a handler with `try { sendCard(); } catch {}` under `$AGENT_HOME/extensions/<bridge>/handler.ts` (path from **your** binding).
 
 **Prompt**: "Improve error handling here."
 
-**Pass** (in the consuming project that has loaded its own `project/<bridge>-sdk.mdc` from the example):
-- Reply requires writing errors to a file rather than `console.error` (per the consuming project's TUI-specific error-handling note, modeled on `examples/project-evox/evox-monorepo.md#41-tui-specific-error-handling-note`)
+**Pass** (in the consuming project that has loaded its own `project/<bridge>-sdk.mdc`):
+- Reply requires writing errors appropriately for the host environment (e.g. file append for TUI) per **your** project's binding (`examples/project-binding/monorepo-trunk-sample.md` sketches where to document this)
 - Reply includes the `[<bridge>]` module prefix per `common/error-handling.mdc#2-module-prefixed-log-lines`
-- If suggesting an IM-platform API call, reply references the platform's API doc URL per the consuming project's binding (modeled on `examples/project-evox/feishu-sdk.md`)
+- If suggesting an IM-platform API call, reply references the platform's official API doc URL pattern from the consuming project's binding (compare `examples/project-binding/im-feishu-sample.md` for shape)
 
 **Fail**:
 - Agent suggests `console.error` despite TUI environment → project-binding overlay didn't trigger
@@ -132,7 +132,7 @@ Six scenarios that together touch all three universal layers (`common/` + `lang/
 
 **Pass**:
 - Reply pulls `patterns/im-bot-integration.mdc` — references WebSocket bridge / event dispatch / typing indicator / pagination / tool grouping
-- Reply does NOT mention `feishu_bridge`, `THUMBSUP`, `FEISHU_APP_ID`, `apifox.cn`, or any other EvoX/Feishu-specific value
+- Reply does NOT mention placeholder signal tokens from unrelated sample bindings (e.g. another chat vendor's internal bridge codename when the prompt was Discord-only)
 - Reply also pulls `patterns/plugin-architecture.mdc` if the project has a host
 - Reply prompts the user to define the Discord-specific binding (env var names, native emoji enum, receive-id prefixes)
 
@@ -147,8 +147,7 @@ Six scenarios that together touch all three universal layers (`common/` + `lang/
 For verifying the English-translation benefit:
 
 ```bash
-# Compare v2 (Chinese) snapshot vs v2.1 (English) by token count
-cd /Users/joy/Desktop/Project/github/evomap/coderules
+cd "$CODERULES_ROOT"   # clone path on your machine
 
 # Total file size as byte proxy (rough)
 wc -c common/*.mdc lang/*.mdc patterns/*.mdc
@@ -177,9 +176,7 @@ print(f'{total:>6}  TOTAL')
 Run before declaring "regression done":
 
 ```bash
-cd /Users/joy/Desktop/Project/github/evomap/coderules
-
-# 1. List every .mdc reference in the codebase
+cd "$CODERULES_ROOT"
 rg -n '[a-z-]+\.mdc' --no-heading | sort -u > /tmp/refs.txt
 
 # 2. List every .mdc file actually present
@@ -217,8 +214,8 @@ rg -l 'alwaysApply: false' --type-add 'mdc:*.mdc' -t mdc
   - `common/error-handling.mdc`
   - `common/quality-gates.mdc`
   - `common/security-guide.mdc`
-- `alwaysApply: false` (everything else): 4 `common/` (comments-docs / imports / refactoring-guidelines / testing-principles) + all 4 `lang/` + all 5 `patterns/` = **13 files**
-- `examples/project-evox/*.md`: not loaded by Cursor (extension is `.md`, not `.mdc`)
+- `alwaysApply: false` (everything else): see INDEX.md for exact counts (`lang/` + `patterns/` + triggered `common/`)
+- `examples/project-binding/*.md`: not loaded by Cursor (extension is `.md`, not `.mdc`)
 
 If a non-listed `common/` file is `true`, the total `alwaysApply: true` count must still stay ≤ 6 within `coderules/`. Consuming projects may add ≤ 1 always-on `project/` trunk for total ≤ 7.
 
@@ -236,7 +233,7 @@ For each of T1–T5:
    - Whether the agent self-references the right rule file
    - Final code quality (file size, error handling, naming, four-state UI completeness)
 
-If your project has a memory-MCP binding (modeled on `examples/project-evox/gep-memory.md`), record outcomes with signals like:
+If your project has a memory-MCP binding (shape per `examples/project-binding/memory-mcp-sample.md`), record outcomes with signals like:
 - `rule_set_v2_4` / `coderules_pure_template` / `decision_hygiene_triggered` / `error_handling_dedupe`
 - `summary`: "Rule set v2.4 dropped project/ from coderules; bindings now live in consuming repo"
 
@@ -249,9 +246,9 @@ If your project has a memory-MCP binding (modeled on `examples/project-evox/gep-
 - [ ] Cross-reference sanity scan reports zero broken references
 - [ ] Frontmatter distribution matches the expected table in §6
 - [ ] No regression in user-facing reply quality (consuming project's binding still controls reply language; the `coderules/` rule pack is language-neutral)
-- [ ] T6 specifically: `patterns/im-bot-integration.mdc` produces a useful Discord-bridge plan with **zero** EvoX/Feishu leakage
+- [ ] T6 specifically: Discord plan avoids importing another vendor's sample constants unless the user asked for them
 
-When all checked → mark v2.2 stable. Capture the experience via `gep_record_outcome` so future restructures can build on it.
+When all checked → mark regression stable for this rule-pack revision. Optionally record lessons in **your** memory MCP (if configured) so future upkeep has recall signal.
 
 ---
 

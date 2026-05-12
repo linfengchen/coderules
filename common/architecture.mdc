@@ -8,15 +8,15 @@ alwaysApply: true
 ## Single Interface Definition
 
 - Each interface / type is defined in **one** package. All other packages reference it via `import type`.
-- Forbidden: defining similar interfaces in multiple packages and bridging them with an adapter layer (e.g., `EvolutionHooks` once defined in `agent/types.ts` and again in `evo-session/hooks.ts` — never again).
-- When adding a field to an interface, **synchronously** check every consumer's wiring code (e.g., `setEvolution` in `main.ts`) to confirm the new field is forwarded correctly.
+- Forbidden: defining similar interfaces in multiple packages and bridging them with an adapter layer (e.g. the same hooks surface in both `packages/a/types.ts` and `packages/b/hooks.ts` — never again).
+- When adding a field to an interface, **synchronously** check every consumer's wiring code (Compose root, DI registration, façade forwards) so the field is not dropped.
 
 ### Extension to Cross-Process / Cross-Language Glue
 
 The same principle applies to IPC / protocol channels:
 
-- The repo's existing **MCP** glue (`crates/evox-mcp`, stdio JSON-RPC) is the canonical cross-language layer. Any new requirement that needs "bolt-on interpreted runtime / hot reload" **must reuse the MCP server subprocess pattern**. Don't build a second IPC / socket / private RPC channel.
-- IM channel adapters go through `evox-channels` (Slack / Feishu / ...). Don't reach around the trait to wire a new platform directly into the trunk.
+- The repo's canonical **MCP** glue is **one** stdio JSON-RPC server subprocess (exact crate path differs per repo). Any new requirement that needs "bolt-on interpreted runtime / hot reload" **must reuse that MCP subprocess pattern**. Don't build a second IPC / socket / private RPC channel.
+- IM channel adapters live behind **one unified layer** (facade / trait / package). Don't reach past it to wire a new chat platform directly into trunk code.
 - If you believe the existing glue layer is insufficient, list the concrete shortcomings per `decision-hygiene.mdc#2-evidence-anchors`, explain why extending it is worse than building a new one, and let the user decide.
 
 ## No Swallowed Errors
@@ -46,7 +46,7 @@ The Rust counterpart: `../lang/clean-code-rust.mdc#error-handling` (no `unwrap()
 
 - Declared variables / imported modules must be consumed; otherwise delete them.
 - A computed result must have a consumer: if `buildReflectionContext()` returns a string, confirm it's injected into the prompt or written to a file. Don't compute and discard.
-- After adding a new evolver-module call, verify its return value is actually propagated downstream.
+- After adding a new plug-in call, verify its return value is actually propagated downstream.
 
 ## Dynamic Imports Must Have Fallbacks
 
@@ -60,23 +60,17 @@ See `../lang/clean-code-typescript.mdc#async--await` for the TS `import()` fallb
 
 ## Monorepo Dependency Chain
 
-After modifying a low-level package's types / interfaces, recompile in dependency order:
+After modifying a low-level package's types / interfaces, recompile in **dependency order** (leaf types → shared hooks → CLI / IDE host). Out-of-order builds leave consumers reading stale `.d.ts`.
 
-```
-agent (types.ts) -> evo-session (hooks.ts) -> coding-agent (main.ts, agent-session.ts)
-```
-
-Compiling out of order leaves consumers reading stale `.d.ts`, producing runtime drift between source and bundle.
-
-Implicit dependencies (e.g., `coding-agent` dynamically imports `@evox/evo-session`) must be declared in `package.json` `optionalDependencies`.
+Implicit optional dependencies (`import()` of a package that might be absent at runtime) must be declared in `package.json` `optionalDependencies` (or your lockfile-equivalent policy).
 
 ## Wiring Completeness
 
 When a hooks / plugin interface gets a new method, check **all four** wiring sites — none can be skipped:
 
-1. The interface definition (`types.ts`)
-2. The implementation (`hooks.ts`)
-3. The delegation / forwarding (`setEvolution` in `main.ts`)
-4. The call site (lifecycle methods in `agent-session.ts`)
+1. The interface definition (e.g. `types.ts`)
+2. The implementation (e.g. `hooks.ts`)
+3. The delegation / forwarding at the host compose root
+4. The lifecycle call site (session / runner)
 
 Missing any one renders the new method useless at runtime.

@@ -38,24 +38,23 @@ Universal testing principles live in `../common/testing-principles.mdc`. This fi
 
 ## Extension Testing Pattern
 
-For testing evox extension tools:
+For testing tools registered against a host-provided plug-in surface (mock the host boundary, then call the registered runner):
 
 ```typescript
-// 1. Create a mock client with all methods as vi.fn()
-const client = createMockLarkClient();
-// 2. Create a mock ExtensionAPI that captures registrations
-const pi = createMockExtensionAPI();
-// 3. Call the register function
-registerMessageTools(pi as any, client as any);
-// 4. Get a tool by name and call execute
-const result = await pi.getTool("feishu_send_message").execute("call-id", params, undefined, undefined, {});
-// 5. Assert on client mock calls and the return value
-expect(client.im.v1.message.create).toHaveBeenCalledWith({ ... });
+// 1. Create a minimal mock SDK client (`vi.fn()` per method).
+// 2. Create a mock host API object that captures `registerTool` / similar.
+const host = createMockPluginHost();
+// 3. Call the extension bootstrap the same way production does (import side effects if needed).
+registerExampleTools(host, client as ExampleSdk);
+// 4. Locate the exposed tool entry and invoke it.
+const result = await host.getTool("example_send_message").execute("call-id", params);
+// 5. Assert SDK methods were called as expected + return shape matches.
+expect(client.messaging.send).toHaveBeenCalled();
 ```
 
 ## Integration Tests
 
-- Use `discoverAndLoadExtensions()` from `../src/core/extensions/loader.js`
+- Use extension discovery/load helpers from **your repo** (`discoverAndLoadExtensions()` pattern); paths are not standardized here.
 - Create temp directories with `fs.mkdtempSync`; clean up in `afterEach`
 - Symlink `node_modules` when the extension has external dependencies
 - Extension objects have `tools: Map<string, ...>` and `handlers: Map<string, ...>`

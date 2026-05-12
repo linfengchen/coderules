@@ -33,7 +33,7 @@ After any large change (cross-file refactor, core-module modification, public-AP
 - Trigger one real business flow; trace input → processing → output end-to-end.
 - Inspect produced artifacts (DB rows, generated files, log entries, event streams) for expected values.
 
-Project-specific kill / cache-clear commands live in the consuming project's `.cursor/rules/project/<name>.mdc` (template: `../examples/project-evox/evox-monorepo.md`).
+Project-specific kill / cache-clear commands live in the consuming project's `.cursor/rules/project/<name>.mdc` (template: `../examples/project-binding/monorepo-trunk-sample.md`).
 
 ### 2.3 Not Passing = Not Done
 
@@ -92,4 +92,4 @@ Run before declaring "done":
 - `decision-hygiene.mdc` — pre-implementation hygiene
 - `error-handling.mdc` — universal error discipline
 - `../lang/<language>.mdc` / `../lang/rust-fmt-discipline.mdc` — language-specific formatter / lint details
-- Consuming project's `.cursor/rules/project/<name>.mdc` — project-specific kill commands and E2E flows (template: `../examples/project-evox/evox-monorepo.md`)
+- Consuming project's `.cursor/rules/project/<name>.mdc` — project-specific kill commands and E2E flows (template: `../examples/project-binding/monorepo-trunk-sample.md`)

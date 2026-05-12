@@ -6,7 +6,7 @@ alwaysApply: false
 
 # IM Bot Integration Patterns
 
-Universal patterns for any IM / chat-platform bot integration (Slack, Feishu, Telegram, WeCom, Discord, QQ Bot). The specific endpoint URLs, emoji vocabularies, message-event shapes, and authentication tokens live in the consuming project's `.cursor/rules/project/<platform>-sdk.mdc`. See `../examples/project-evox/feishu-sdk.md` for a template.
+Universal patterns for any IM / chat-platform bot integration (Slack, Feishu, Telegram, WeCom, Discord, QQ Bot). The specific endpoint URLs, emoji vocabularies, message-event shapes, and authentication tokens live in the consuming project's `.cursor/rules/project/<platform>-sdk.mdc`. See `../examples/project-binding/im-feishu-sample.md` for one vendor-specific example.
 
 ## 1. Client Initialization
 
@@ -162,4 +162,4 @@ True E2E tests need a real bot account; unit tests cover the parsing / routing /
 - `../common/security-guide.mdc` — credential storage; never hardcode app secrets
 - `../common/error-handling.mdc` — module-prefixed log lines for grep-locating
 - `plugin-architecture.mdc` — most IM bots run as plugins of a host agent
-- Consuming project's `.cursor/rules/project/<platform>-sdk.mdc` — platform-specific URLs, emoji tables, block-type IDs (template: `../examples/project-evox/feishu-sdk.md`)
+- Consuming project's `.cursor/rules/project/<platform>-sdk.mdc` — platform-specific URLs, emoji tables, block-type IDs (template: `../examples/project-binding/im-feishu-sample.md`)

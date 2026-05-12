@@ -261,8 +261,8 @@ Each **cross-process / cross-language** channel can only have one definition. Se
 
 | Project context | Existing glue | Forbidden |
 |---|---|---|
-| Already has an MCP server doing stdio JSON-RPC | `crates/evox-mcp` | Building a second IPC / socket / private RPC for hot-reload |
-| Already has a unified IM channel layer | `evox-channels` | Reaching past the trait to wire a new platform directly into the trunk |
+| Already has an MCP server doing stdio JSON-RPC | `crates/<mcp-server>/` | Building a second IPC / socket / private RPC for hot-reload |
+| Already has a unified IM channel layer | `packages/im-channels` (rename to yours) | Reaching past the trait to wire a new platform directly into the trunk |
 | Already has a plugin loader | `extensions/loader.ts` | Spawning a child process for one specific ext to communicate |
 
 ### 6.3 Prerequisites for Building a New Glue

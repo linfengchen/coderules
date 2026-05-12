@@ -166,7 +166,7 @@ The following values are **not** part of this rule — they belong in the consum
 - magnet-file list (concrete paths in this repo)
 - test commands per stack (`npm test`, `pytest`, `go test ./...`, `cargo test --workspace`, ...)
 
-If your repo lacks the binding file, copy `examples/project-evox/evox-monorepo.md` and replace EvoX values.
+If your repo lacks the binding file, start from `examples/project-binding/monorepo-trunk-sample.md` and replace every `<...>` placeholder.
 
 ## Appendix C. Failure modes this rule prevents
 

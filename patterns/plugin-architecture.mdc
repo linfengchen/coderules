@@ -136,4 +136,4 @@ The project layer specifies the exact cache directory and kill commands.
 
 - `../common/error-handling.mdc` — universal error discipline + module-prefix logging
 - `../common/architecture.mdc` — single interface definition; host APIs are the prime example
-- Consuming project's `.cursor/rules/project/<name>-extension.mdc` — concrete binding (path, host package name, log dir) (template: `../examples/project-evox/evox-extension.md`)
+- Consuming project's `.cursor/rules/project/<name>-extension.mdc` — concrete binding (path, host package name, log dir) (template: `../examples/project-binding/plugin-extension-sample.md`)

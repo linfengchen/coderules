@@ -166,4 +166,4 @@ To add detail for a specific combo, add it to the corresponding axis templates s
 - `../common/architecture.mdc#single-interface-definition` — schema, splitter, mention gate all follow "one definition per crate / package"
 - `../common/decision-hygiene.mdc#5-temporal-layering` — adding a "5th axis" / 16 scripts / new IM platforms are **post-v1** decisions; default to placeholder + trigger
 - `../common/clean-code-core.mdc#yagni` — template / etiquette / splitter knob count caps
-- Consuming project's `.cursor/rules/project/<name>-persona.mdc` — concrete framework choice, axes, file paths, channel preconditions (template: `../examples/project-evox/mbti-persona.md`)
+- Consuming project's `.cursor/rules/project/<name>-persona.mdc` — concrete framework choice, axes, file paths, channel preconditions (template: `../examples/project-binding/persona-mbti-sample.md`)

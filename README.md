@@ -1,10 +1,8 @@
 # coderules
 
-A project-agnostic, layered Cursor/Claude-Code rule pack — universal coding principles + language-specific syntax + reusable architectural patterns + a `aicoding` agent skill.
+A project-agnostic, layered Cursor/Claude-Code rule pack — universal coding principles + language-specific syntax + reusable architectural patterns + a `aicoding` agent skill. See [`INDEX.md`](./INDEX.md) for structure and migration history.
 
-> **New here?** Read the team-facing introduction first: [`docs/PR-INTRODUCTION.md`](./docs/PR-INTRODUCTION.md) — what it solves, how it works, and how it compares to other approaches (in Chinese).
-
-> What lives here, what does not: this repo ships **rules and a skill**. Project-specific bindings (paths, env vars, API URLs) belong in your **own** repo's `.cursor/rules/project/`. We provide an EvoX-flavored example template under `examples/project-evox/`.
+> What lives here, what does not: this repo ships **rules and a skill**. Project-specific bindings (paths, env vars, API URLs) belong in your **own** repo's `.cursor/rules/project/`. Generic copy-paste templates live under `examples/project-binding/` (`.md` only — never auto-loaded).
 
 ---
 
@@ -16,7 +14,7 @@ coderules/
 ├── lang/          Per-language syntax   (TypeScript / Rust / Python / Go / testing)
 ├── patterns/      Reusable architecture (multi-worktree / multi-agent / plugin / IM bot / memory MCP / persona / database)
 ├── examples/      Reference templates   (.md only — never auto-loaded)
-│   └── project-evox/
+│   └── project-binding/
 └── aicoding/   Agent skill           (DECIDE → BUILD → VERIFY → POLISH)
 ```
 
@@ -141,21 +139,21 @@ The rule pack is project-agnostic. To bind universal patterns to **your** projec
 
 ```bash
 # 1) Pick a template that matches your need
-ls ~/.coderules/examples/project-evox/
-#   evox-monorepo.md   ← layout / runtime / E2E / agent-process commands
-#   evox-extension.md  ← plugin paths + host symbol + log dir
-#   feishu-sdk.md      ← IM platform endpoints + emoji table + block IDs
-#   gep-memory.md      ← memory-MCP server name + tool prefix + signal dictionary
-#   mbti-persona.md    ← persona axes + persona-crate paths
+ls ~/.coderules/examples/project-binding/
+#   monorepo-trunk-sample.md   ← layout / worktrees / kill + E2E commands
+#   plugin-extension-sample.md ← extension root + host symbol + logs
+#   im-feishu-sample.md       ← Lark/Feishu API sample (swap vendor for Slack/Discord/…)
+#   memory-mcp-sample.md      ← memory MCP id + tools + signals
+#   persona-mbti-sample.md    ← persona axes + paths (replace with your taxonomy)
 
-# 2) Copy + rename .md → .mdc, replace EvoX values
+# 2) Copy + rename .md → .mdc, replace every `<...>` placeholder
 mkdir -p ~/path/to/your/repo/.cursor/rules/project
-cp ~/.coderules/examples/project-evox/feishu-sdk.md \
+cp ~/.coderules/examples/project-binding/im-feishu-sample.md \
    ~/path/to/your/repo/.cursor/rules/project/discord-sdk.mdc
-# ↑ open the file and replace Feishu values with Discord
+# ↑ open the file and replace Feishu fields with Discord (or drop for a greenfield chat binding)
 ```
 
-The pattern → binding map (which template binds which `patterns/` file) is in [`examples/project-evox/README.md`](./examples/project-evox/README.md).
+The pattern → binding map is in [`examples/project-binding/README.md`](./examples/project-binding/README.md).
 
 ---
 

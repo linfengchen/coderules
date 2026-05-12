@@ -65,13 +65,13 @@ Generalization of `architecture.mdc#single-interface-definition` to **cross-proc
 
 Current state in this repo:
 
-- stdio JSON-RPC glue = **MCP** (`crates/evox-mcp`)
-- IM channel adapter layer = `evox-channels` (Slack / Feishu / ...)
+- stdio JSON-RPC glue = **MCP** (one canonical server subprocess in your repo — e.g. `crates/<mcp-server>/`)
+- IM channel adapter layer = your repo's **unified** chat-platform module (don't bypass it to bolt a vendor into core)
 
 Forbidden:
 
 - Building a second IPC / custom RPC / socket protocol for "needs hot reload / needs interpreted runtime" — **reuse the MCP subprocess pattern** instead.
-- Reaching around the `evox-channels` trait to wire a new IM platform directly into the trunk.
+- Reaching around **that unified channel adapter** (trait / façade / package boundary) to wire a new chat platform straight into trunk code.
 - Adding a "third host language" outside Rust / TS to write glue code.
 
 If you genuinely believe the existing glue layer is insufficient, you must first:
@@ -89,7 +89,7 @@ Architectural decisions split into **pre-v1 / post-v1** (or current phase / next
 
 Typical applications:
 
-- A possible third-party extension marketplace → don't ship the ABI compatibility matrix now; only define the `EVOX_EXT_ABI_VERSION` placeholder constant and **explicitly mark the ABI as unstable** in user-facing docs.
+- A possible third-party extension marketplace → don't ship the ABI compatibility matrix now; only define an `EXT_ABI_VERSION` placeholder (or equivalent) and **explicitly mark the ABI as unstable** in user-facing docs.
 - A possible hot-reload story → already covered by MCP subprocesses; don't add runtime reloading to the Rust core.
 - Possible multi-language SDKs → maintain only Rust + the TS sunset path; don't pre-design an n-language binding generator.
 
@@ -99,7 +99,7 @@ Typical applications:
 
 Symbols / docs / examples that "look like a public API / stable ABI / contract" must be distinguished from "actually committed-to stability". Implementation details (internal constants, modules without `pub`, code in `example/` folders) **default to no stability promise**, but **must say so explicitly in doc comments / READMEs** to prevent users / contributors from treating them as a public contract.
 
-Concrete examples and execution patterns are recorded in `~/.cursor/plugins/peak/峰哥.skill` §15.
+Concrete examples belong in your consuming project's `.cursor/rules/project/` bindings, not inside this generic rule pack.
 
 ## Checklist
 
@@ -119,5 +119,5 @@ Any unchecked → reply is non-compliant; redo.
 - `architecture.mdc#single-interface-definition`: §4 of this file is its cross-process generalization.
 - `clean-code-core.mdc#yagni`: §5 of this file is the temporal-layering version of YAGNI.
 - `quality-gates.mdc#post-change-review--e2e-gate`: this file covers the **decision phase**; quality-gates covers **post-implementation**.
-- Consuming project's memory-MCP binding (template: `../examples/project-evox/gep-memory.md`): after a substantive decision, call the project's `*_record_outcome` tool. Signals must include at least one of `decision_decomposition` / `temporal_layering` / `glue_layer`.
+- Consuming project's memory-MCP binding (template: `../examples/project-binding/memory-mcp-sample.md`): after a substantive decision, call the project's `*_record_outcome` tool. Signals must include at least one of `decision_decomposition` / `temporal_layering` / `glue_layer`.
 - `../patterns/multi-worktree.mdc`: for multi-worktree direction decisions, the pre-flight scan is the canonical source of evidence anchors.

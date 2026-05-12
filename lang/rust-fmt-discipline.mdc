@@ -152,4 +152,4 @@ Confirm both versions match. If they don't, fix the toolchain first; don't blind
 - `../common/quality-gates.mdc`: **source of truth**. It owns the full 5-step gate; this file is the write-side complement to its fmt section (write rustfmt-friendly code + counter-example library).
 - `clean-code-rust.mdc#naming`: "Follow `cargo fmt` defaults; do not fight the formatter" — this rule promotes that style suggestion to a hard-enforced + counter-example-backed rule.
 - `../patterns/multi-worktree.mdc#4-completion-handoff`: every worktree push must walk the full `../common/quality-gates.mdc` gate.
-- Consuming project's memory-MCP binding (template: `../examples/project-evox/gep-memory.md`): when fmt passes locally but is red on master CI, record an outcome with signals `ci_red` / `rust_fmt_skipped` / `toolchain_drift` so future recall hits.
+- Consuming project's memory-MCP binding (template: `../examples/project-binding/memory-mcp-sample.md`): when fmt passes locally but is red on master CI, record an outcome with signals `ci_red` / `rust_fmt_skipped` / `toolchain_drift` so future recall hits.

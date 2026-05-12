@@ -71,10 +71,10 @@ catch {
 
 ```ts
 try {
-	const { feature } = await import("@evox/optional-package");
+	const { feature } = await import("@acme/optional-package");
 	feature.init();
 } catch (err) {
-	console.error(`@evox/optional-package not available: ${err instanceof Error ? err.message : err}`);
+	console.error(`@acme/optional-package not available: ${err instanceof Error ? err.message : err}`);
 }
 ```
 

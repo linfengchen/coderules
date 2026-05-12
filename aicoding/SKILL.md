@@ -378,4 +378,4 @@ Any unchecked → not done; return to the corresponding gate.
   - `../common/clean-code-core.mdc` / `architecture.mdc` / `decision-hygiene.mdc` / `quality-gates.mdc` / `comments-docs.mdc` / `imports.mdc` / `security-guide.mdc` / `testing-principles.mdc` / `error-handling.mdc`
   - `../lang/clean-code-typescript.mdc` / `clean-code-rust.mdc` / `rust-fmt-discipline.mdc` / `typescript-testing.mdc`
   - `../patterns/multi-worktree.mdc` / `plugin-architecture.mdc` / `im-bot-integration.mdc` / `memory-mcp-discipline.mdc` / `persona-architecture.mdc` (architectural patterns; trigger when relevant)
-  - The consuming project's own `.cursor/rules/project/<name>.mdc` (project-specific bindings; written per-project, see `../examples/project-evox/` for templates)
+  - The consuming project's own `.cursor/rules/project/<name>.mdc` (project-specific bindings; written per-project, see `../examples/project-binding/` for templates)

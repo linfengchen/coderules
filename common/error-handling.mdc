@@ -57,7 +57,7 @@ Every error / warning log line must begin with `[module-name]` so `grep` can loc
 
 ```
 [task-service] failed to persist task: connection timeout
-[feishu-bridge] WebSocket reconnect attempt 3/5
+[im-bridge] WebSocket reconnect attempt 3/5
 [evolution-lifecycle] hook 'before_agent_start' returned non-Ok status
 ```
 
